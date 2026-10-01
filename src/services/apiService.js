@@ -1,42 +1,77 @@
 import { storageService } from './storageService';
+import { firebaseService } from './firebaseService';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 class ApiService {
   constructor() {
     this.isBackendAvailable = null;
+    this.cloudProvider = firebaseService.isConfigured() ? 'firebase' : null;
   }
 
   async checkHealth() {
+    if (firebaseService.isConfigured()) {
+      this.isBackendAvailable = true;
+      this.cloudProvider = 'firebase';
+      return true;
+    }
     try {
       const res = await fetch(`${API_BASE}/couple`, { signal: AbortSignal.timeout(3000) });
       this.isBackendAvailable = res.ok;
+      this.cloudProvider = res.ok ? 'laravel' : null;
       return res.ok;
     } catch {
       this.isBackendAvailable = false;
+      this.cloudProvider = null;
       return false;
     }
   }
 
   async getCoupleData() {
+    // 1. Try Firebase if configured
+    if (firebaseService.isConfigured()) {
+      try {
+        const fireData = await firebaseService.getCoupleData();
+        if (fireData) {
+          storageService.saveCoupleData(fireData);
+          this.isBackendAvailable = true;
+          this.cloudProvider = 'firebase';
+          return fireData;
+        }
+      } catch (err) {
+        console.warn('Firebase error fetching couple data:', err);
+      }
+    }
+
+    // 2. Try Laravel backend
     try {
-      const res = await fetch(`${API_BASE}/couple`, { signal: AbortSignal.timeout(4000) });
+      const res = await fetch(`${API_BASE}/couple`, { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
         const json = await res.json();
         if (json.data) {
           storageService.saveCoupleData(json.data);
           this.isBackendAvailable = true;
+          this.cloudProvider = 'laravel';
           return json.data;
         }
       }
-    } catch (err) {
-      console.warn('Backend unavailable, falling back to local cache for couple data:', err.message);
-      this.isBackendAvailable = false;
+    } catch {
+      // Backend not running on this device
     }
+
+    // 3. Fallback to localStorage
     return storageService.getCoupleData();
   }
 
   async saveCoupleData(data) {
+    // 1. Save to Firebase if configured
+    if (firebaseService.isConfigured()) {
+      await firebaseService.saveCoupleData(data);
+      storageService.saveCoupleData(data);
+      return data;
+    }
+
+    // 2. Try Laravel API
     try {
       const res = await fetch(`${API_BASE}/couple`, {
         method: 'PUT',
@@ -45,58 +80,88 @@ class ApiService {
       });
       if (res.ok) {
         const json = await res.json();
-        storageService.saveCoupleData(json.data || data);
-        return json.data || data;
+        const saved = json.data || data;
+        storageService.saveCoupleData(saved);
+        return saved;
       }
-    } catch (err) {
-      console.warn('Backend error saving couple data, saving locally:', err.message);
+    } catch {
+      // Fallback
     }
+
+    // 3. Local storage
     storageService.saveCoupleData(data);
     return data;
   }
 
   async verifyPin(pin) {
-    try {
-      const res = await fetch(`${API_BASE}/verify-pin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin }),
-      });
-      if (res.ok) return true;
-      if (res.status === 403) return false;
-    } catch {
-      // Fallback to local check
-    }
-    const localCouple = storageService.getCoupleData();
-    return trimPin(localCouple.pin) === trimPin(pin);
+    const couple = await this.getCoupleData();
+    return trimPin(couple?.pin || '1314') === trimPin(pin);
   }
 
   async getMemories(params = {}) {
+    // 1. Try Firebase
+    if (firebaseService.isConfigured()) {
+      try {
+        const fireMemories = await firebaseService.getMemories();
+        if (Array.isArray(fireMemories) && fireMemories.length > 0) {
+          const formatted = fireMemories.map(normalizeMemory);
+          storageService.saveMemories(formatted);
+          this.isBackendAvailable = true;
+          this.cloudProvider = 'firebase';
+          return formatted;
+        }
+      } catch (err) {
+        console.warn('Firebase error fetching memories:', err);
+      }
+    }
+
+    // 2. Try Laravel
     try {
       const url = new URL(`${API_BASE}/memories`);
       if (params.favorite) url.searchParams.set('favorite', '1');
       if (params.search) url.searchParams.set('search', params.search);
       if (params.order) url.searchParams.set('order', params.order);
 
-      const res = await fetch(url.toString(), { signal: AbortSignal.timeout(4000) });
+      const res = await fetch(url.toString(), { signal: AbortSignal.timeout(3000) });
       if (res.ok) {
         const json = await res.json();
         if (Array.isArray(json.data)) {
-          // Normalize fields for frontend (is_favorite -> isFavorite)
           const formatted = json.data.map(normalizeMemory);
           storageService.saveMemories(formatted);
           this.isBackendAvailable = true;
+          this.cloudProvider = 'laravel';
           return formatted;
         }
       }
-    } catch (err) {
-      console.warn('Backend unavailable, falling back to local cache for memories:', err.message);
-      this.isBackendAvailable = false;
+    } catch {
+      // Backend not running on this device
     }
+
+    // 3. Fallback to localStorage
     return storageService.getMemories();
   }
 
   async addMemory(memoryData, rawFile = null) {
+    const cleanMemory = {
+      ...memoryData,
+      id: memoryData.id || `mem-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      media: memoryData.media || (memoryData.image ? [{ type: 'image', url: memoryData.image }] : []),
+      image: memoryData.image || (memoryData.media?.[0]?.url || ''),
+      story: memoryData.story || '',
+      title: memoryData.title || memoryData.story?.slice(0, 30) || 'ذكرى جميلة',
+      date: memoryData.date || new Date().toISOString().split('T')[0],
+      isFavorite: !!memoryData.isFavorite,
+      likes: memoryData.likes || 0,
+    };
+
+    // 1. Try Firebase
+    if (firebaseService.isConfigured()) {
+      const created = await firebaseService.addMemory(cleanMemory);
+      storageService.addMemory(created || cleanMemory);
+      return created || cleanMemory;
+    }
+
+    // 2. Try Laravel
     try {
       let body;
       const headers = {};
@@ -104,26 +169,20 @@ class ApiService {
       if (rawFile) {
         const formData = new FormData();
         formData.append('image_file', rawFile);
-        formData.append('title', memoryData.title);
-        formData.append('date', memoryData.date);
-        if (memoryData.tag) formData.append('tag', memoryData.tag);
-        if (memoryData.location) formData.append('location', memoryData.location);
-        if (memoryData.milestone) formData.append('milestone', memoryData.milestone);
-        if (memoryData.story) formData.append('story', memoryData.story);
-        if (memoryData.isFavorite) formData.append('is_favorite', '1');
+        formData.append('title', cleanMemory.title);
+        formData.append('date', cleanMemory.date);
+        formData.append('story', cleanMemory.story);
+        if (cleanMemory.isFavorite) formData.append('is_favorite', '1');
         body = formData;
       } else {
         headers['Content-Type'] = 'application/json';
         body = JSON.stringify({
-          title: memoryData.title || memoryData.story?.slice(0, 30) || 'ذكرى جميلة',
-          date: memoryData.date,
-          tag: memoryData.tag,
-          location: memoryData.location,
-          milestone: memoryData.milestone,
-          story: memoryData.story,
-          image: memoryData.image,
-          media: memoryData.media || [],
-          is_favorite: memoryData.isFavorite,
+          title: cleanMemory.title,
+          date: cleanMemory.date,
+          story: cleanMemory.story,
+          image: cleanMemory.image,
+          media: cleanMemory.media,
+          is_favorite: cleanMemory.isFavorite,
         });
       }
 
@@ -142,10 +201,27 @@ class ApiService {
     } catch (err) {
       console.warn('Backend error adding memory, saving to local cache:', err.message);
     }
-    return storageService.addMemory(memoryData);
+
+    // 3. Fallback to localStorage
+    return storageService.addMemory(cleanMemory);
   }
 
   async updateMemory(id, memoryData, rawFile = null) {
+    const cleanMemory = {
+      ...memoryData,
+      media: memoryData.media || (memoryData.image ? [{ type: 'image', url: memoryData.image }] : []),
+      image: memoryData.image || (memoryData.media?.[0]?.url || ''),
+      story: memoryData.story || '',
+      title: memoryData.title || memoryData.story?.slice(0, 30) || 'ذكرى جميلة',
+    };
+
+    // 1. Try Firebase
+    if (firebaseService.isConfigured()) {
+      await firebaseService.updateMemory(id, cleanMemory);
+      return storageService.updateMemory(id, cleanMemory);
+    }
+
+    // 2. Try Laravel
     try {
       let body;
       const headers = {};
@@ -153,30 +229,23 @@ class ApiService {
       if (rawFile) {
         const formData = new FormData();
         formData.append('image_file', rawFile);
-        if (memoryData.title) formData.append('title', memoryData.title);
-        if (memoryData.date) formData.append('date', memoryData.date);
-        if (memoryData.tag !== undefined) formData.append('tag', memoryData.tag);
-        if (memoryData.location !== undefined) formData.append('location', memoryData.location);
-        if (memoryData.milestone !== undefined) formData.append('milestone', memoryData.milestone);
-        if (memoryData.story !== undefined) formData.append('story', memoryData.story);
-        if (memoryData.isFavorite !== undefined) formData.append('is_favorite', memoryData.isFavorite ? '1' : '0');
+        if (cleanMemory.title) formData.append('title', cleanMemory.title);
+        if (cleanMemory.date) formData.append('date', cleanMemory.date);
+        if (cleanMemory.story !== undefined) formData.append('story', cleanMemory.story);
+        if (cleanMemory.isFavorite !== undefined) formData.append('is_favorite', cleanMemory.isFavorite ? '1' : '0');
         body = formData;
       } else {
         headers['Content-Type'] = 'application/json';
         body = JSON.stringify({
-          title: memoryData.title || memoryData.story?.slice(0, 30) || 'ذكرى جميلة',
-          date: memoryData.date,
-          tag: memoryData.tag,
-          location: memoryData.location,
-          milestone: memoryData.milestone,
-          story: memoryData.story,
-          image: memoryData.image,
-          media: memoryData.media || [],
-          is_favorite: memoryData.isFavorite,
+          title: cleanMemory.title,
+          date: cleanMemory.date,
+          story: cleanMemory.story,
+          image: cleanMemory.image,
+          media: cleanMemory.media,
+          is_favorite: cleanMemory.isFavorite,
         });
       }
 
-      // Using POST to /memories/{id} handles multipart FormData comfortably in PHP
       const res = await fetch(`${API_BASE}/memories/${id}`, {
         method: 'POST',
         headers,
@@ -190,88 +259,82 @@ class ApiService {
         return updated;
       }
     } catch (err) {
-      console.warn('Backend error updating memory, updating locally:', err.message);
+      console.warn('Backend error updating memory:', err.message);
     }
-    return storageService.updateMemory(id, memoryData);
+
+    // 3. Fallback
+    return storageService.updateMemory(id, cleanMemory);
   }
 
   async deleteMemory(id) {
+    // 1. Try Firebase
+    if (firebaseService.isConfigured()) {
+      await firebaseService.deleteMemory(id);
+      return storageService.deleteMemory(id);
+    }
+
+    // 2. Try Laravel
     try {
-      const res = await fetch(`${API_BASE}/memories/${id}`, {
-        method: 'DELETE',
-      });
+      const res = await fetch(`${API_BASE}/memories/${id}`, { method: 'DELETE' });
       if (res.ok) {
         storageService.deleteMemory(id);
         return true;
       }
-    } catch (err) {
-      console.warn('Backend error deleting memory, deleting locally:', err.message);
+    } catch {
+      // Fallback
     }
+
     storageService.deleteMemory(id);
     return true;
   }
 
   async toggleLike(id) {
+    // 1. Try Firebase
+    if (firebaseService.isConfigured()) {
+      const likes = await firebaseService.toggleLike(id);
+      if (likes !== null) {
+        storageService.updateMemory(id, { likes });
+        return likes;
+      }
+    }
+
+    // 2. Try Laravel
     try {
-      const res = await fetch(`${API_BASE}/memories/${id}/like`, {
-        method: 'POST',
-      });
+      const res = await fetch(`${API_BASE}/memories/${id}/like`, { method: 'POST' });
       if (res.ok) {
         const json = await res.json();
         storageService.updateMemory(id, { likes: json.likes });
         return json.likes;
       }
-    } catch (err) {
-      console.warn('Backend error liking memory, updating locally:', err.message);
+    } catch {
+      // Fallback
     }
+
     const updated = storageService.toggleLike(id);
     const item = updated.find((m) => m.id === id);
     return item ? item.likes : 0;
   }
 
   async exportBackup() {
-    try {
-      const res = await fetch(`${API_BASE}/backup/export`);
-      if (res.ok) {
-        const data = await res.json();
-        return JSON.stringify(data, null, 2);
-      }
-    } catch {
-      // Fallback
-    }
     return storageService.exportBackup();
   }
 
   async importBackup(jsonString) {
-    try {
-      const res = await fetch(`${API_BASE}/backup/import`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: jsonString,
-      });
-      if (res.ok) {
-        const local = storageService.importBackup(jsonString);
-        return { success: true };
-      }
-    } catch (err) {
-      console.warn('Backend error importing backup, applying locally:', err.message);
+    const res = storageService.importBackup(jsonString);
+    if (res.success && firebaseService.isConfigured()) {
+      const couple = storageService.getCoupleData();
+      const memories = storageService.getMemories();
+      await firebaseService.uploadAllToFirebase(couple, memories);
     }
-    return storageService.importBackup(jsonString);
+    return res;
   }
 
   async resetToDefaults() {
-    try {
-      const res = await fetch(`${API_BASE}/backup/reset`, {
-        method: 'POST',
-      });
-      if (res.ok) {
-        const defaults = storageService.resetToDefaults();
-        return defaults;
-      }
-    } catch (err) {
-      console.warn('Backend error resetting, resetting locally:', err.message);
+    const defaults = storageService.resetToDefaults();
+    if (firebaseService.isConfigured()) {
+      await firebaseService.uploadAllToFirebase(defaults.couple, defaults.memories);
     }
-    return storageService.resetToDefaults();
+    return defaults;
   }
 }
 

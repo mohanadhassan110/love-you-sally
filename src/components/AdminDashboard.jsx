@@ -17,9 +17,12 @@ import {
   ExternalLink,
   Smartphone,
   Plus,
+  Cloud,
+  Database,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { processMediaFile } from '../utils/imageCompressor';
+import { firebaseService } from '../services/firebaseService';
 import EditMemoryModal from './EditMemoryModal';
 
 export default function AdminDashboard({
@@ -59,6 +62,15 @@ export default function AdminDashboard({
     pin: couple?.pin || '1314',
     customAudioUrl: couple?.customAudioUrl || '',
   });
+
+  // Firebase Cloud Sync state
+  const [isFirebaseConnected, setIsFirebaseConnected] = useState(() => firebaseService.isConfigured());
+  const [firebaseConfigInput, setFirebaseConfigInput] = useState(() => {
+    const existing = firebaseService.getConfig();
+    return existing ? JSON.stringify(existing, null, 2) : '';
+  });
+  const [isSyncingToCloud, setIsSyncingToCloud] = useState(false);
+  const [firebaseError, setFirebaseError] = useState('');
 
   if (!isOpen) return null;
 
@@ -163,6 +175,65 @@ export default function AdminDashboard({
     showToast('تم حفظ إعدادات الكابلز بنجاح!');
   };
 
+  const handleSaveFirebaseConfig = async (e) => {
+    e.preventDefault();
+    setFirebaseError('');
+    if (!firebaseConfigInput.trim()) {
+      firebaseService.removeConfig();
+      setIsFirebaseConnected(false);
+      showToast('تم إلغاء الربط السحابي والاعتماد على التخزين المحلي');
+      return;
+    }
+
+    try {
+      let configObj;
+      let raw = firebaseConfigInput.trim();
+      // Handle JS format: const firebaseConfig = { ... }
+      if (raw.includes('{') && raw.includes('}')) {
+        const jsonLike = raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1)
+          .replace(/([a-zA-Z0-9_]+)\s*:/g, '"$1":')
+          .replace(/'/g, '"')
+          .replace(/,\s*}/g, '}');
+        try {
+          configObj = JSON.parse(jsonLike);
+        } catch {
+          configObj = JSON.parse(raw);
+        }
+      } else {
+        configObj = JSON.parse(raw);
+      }
+
+      if (!configObj.projectId || !configObj.apiKey) {
+        throw new Error('الكود يجب أن يحتوي على apiKey و projectId على الأقل.');
+      }
+
+      firebaseService.setConfig(configObj);
+      setIsFirebaseConnected(true);
+      showToast('تم حفظ إعدادات Firebase بنجاح!');
+
+      // Automatically sync current memories to cloud
+      setIsSyncingToCloud(true);
+      await firebaseService.uploadAllToFirebase(couple, memories);
+      setIsSyncingToCloud(false);
+      showToast('تم رفع كافة الذكريات لقاعدة بيانات Firebase السحابية!');
+    } catch (err) {
+      setFirebaseError(err.message || 'تعذر قراءة كود إعدادات Firebase.');
+      setIsSyncingToCloud(false);
+    }
+  };
+
+  const handleSyncNow = async () => {
+    try {
+      setIsSyncingToCloud(true);
+      await firebaseService.uploadAllToFirebase(couple, memories);
+      showToast('تمت مزامنة كافة الذكريات مع السحابة بنجاح!');
+    } catch (err) {
+      alert('فشل في المزامنة: ' + err.message);
+    } finally {
+      setIsSyncingToCloud(false);
+    }
+  };
+
   return (
     <div
       role="dialog"
@@ -249,6 +320,21 @@ export default function AdminDashboard({
           >
             <Settings className="w-4 h-4 text-[#8B7B83]" />
             <span>بيانات الكابلز والرمز</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('cloud')}
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all shrink-0 cursor-pointer ${
+              activeTab === 'cloud'
+                ? 'border-[#C05665] text-[#882B3B] font-bold'
+                : 'border-transparent text-[#6B5C64] hover:text-[#281C22]'
+            }`}
+          >
+            <Cloud className="w-4 h-4 text-[#C05665]" />
+            <span>المزامنة السحابية (Firebase)</span>
+            {isFirebaseConnected && (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="متصل بالسحابة 24/7" />
+            )}
           </button>
 
           <button
@@ -695,6 +781,151 @@ export default function AdminDashboard({
                     className="px-6 py-2.5 rounded-xl bg-[#682535] hover:bg-[#521b29] text-white font-medium text-xs shadow-md transition-all active:scale-98 cursor-pointer"
                   >
                     حفظ إعدادات الكابلز
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* TAB: FIREBASE CLOUD SYNC */}
+          {activeTab === 'cloud' && (
+            <div className="max-w-2xl mx-auto space-y-6 text-xs text-[#5F4F57]">
+              <div>
+                <h3 className="text-xl font-serif font-bold text-[#281C22] mb-1 flex items-center gap-2">
+                  <Cloud className="w-5 h-5 text-[#C05665]" />
+                  <span>المزامنة السحابية وقاعدة البيانات (Google Firebase)</span>
+                </h3>
+                <p className="text-[#6B5C64] leading-relaxed">
+                  ربط الموقع بقاعدة بيانات سحابية مجانية تعمل أونلاين 24/7؛ ليتم مزامنة أي تعديل تقوم به من جهازك ليظهر فوراً على أي موبايل يلمس كارت الـ NFC.
+                </p>
+              </div>
+
+              {/* Status Card */}
+              {isFirebaseConnected ? (
+                <div className="p-4 sm:p-5 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <h4 className="font-bold text-sm text-emerald-950">
+                        متصل سحابياً بقاعدة بيانات Google Firebase بنجاح 🟢
+                      </h4>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                      24/7 Live Sync
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-800 leading-relaxed">
+                    جميع الذكريات وبيانات الكابلز متزامنة ومحفوظة في السحابة. يمكنك الآن فتح الرابط من أي موبايل أو لمس كارت الـ NFC لرؤية نفس البيانات تماماً.
+                  </p>
+
+                  <div className="pt-2 flex flex-wrap items-center gap-2.5">
+                    <button
+                      type="button"
+                      disabled={isSyncingToCloud}
+                      onClick={handleSyncNow}
+                      className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <UploadCloud className="w-4 h-4" />
+                      <span>{isSyncingToCloud ? 'جاري الرفع للسحابة...' : 'رفع وتحديث الذكريات في السحابة الآن'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('هل تريد فصل الربط مع Firebase والعودة للتخزين المحلي؟')) {
+                          firebaseService.removeConfig();
+                          setIsFirebaseConnected(false);
+                          setFirebaseConfigInput('');
+                          showToast('تم فصل الربط السحابي');
+                        }
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-white text-red-700 hover:bg-red-50 border border-red-200 font-medium text-xs transition-colors cursor-pointer"
+                    >
+                      فصل السحابة
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 sm:p-5 rounded-3xl bg-[#FAF7F2] border border-[#EADBCE] space-y-4">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                    <h4 className="font-bold text-sm text-[#281C22]">
+                      الموقع يعمل حالياً بالتخزين المحلي (Local Storage)
+                    </h4>
+                  </div>
+                  <p className="text-xs text-[#6B5C64] leading-relaxed">
+                    التخزين المحلي يحفظ التعديلات في متصفح هذا الجهاز فقط. لكي يرى شريكك التعديلات من موبايله عبر الـ NFC، قُم بربط Firebase مجاناً خلال دقيقة واحدة عبر الخطوات التالية:
+                  </p>
+
+                  {/* 3 Simple Steps */}
+                  <div className="space-y-2.5 bg-white p-3.5 rounded-2xl border border-[#EADBCE] text-[11px]">
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#F8E9EB] text-[#882B3B] font-bold flex items-center justify-center shrink-0 text-[10px]">
+                        ١
+                      </span>
+                      <p>
+                        ادخل على{' '}
+                        <a
+                          href="https://console.firebase.google.com"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-bold text-[#C05665] underline"
+                        >
+                          Google Firebase Console
+                        </a>{' '}
+                        وسجّل بحساب جوجل، ثم اضغط <strong>Create a project</strong> (مجاني 100%).
+                      </p>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#F8E9EB] text-[#882B3B] font-bold flex items-center justify-center shrink-0 text-[10px]">
+                        ٢
+                      </span>
+                      <p>
+                        من القائمة الجانبية اختر <strong>Build</strong> ثم <strong>Firestore Database</strong> واضغط <strong>Create database</strong> (اختر وضع <em>Start in test mode</em>).
+                      </p>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                      <span className="w-5 h-5 rounded-full bg-[#F8E9EB] text-[#882B3B] font-bold flex items-center justify-center shrink-0 text-[10px]">
+                        ٣
+                      </span>
+                      <p>
+                        من إعدادات المشروع (علامة الترس ⚙️ Project settings) اضغط على أيقونة الويب <code>&lt;/&gt;</code> وانسخ كائن <code>firebaseConfig</code> والصقه في المربع أدناه:
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Config Form */}
+              <form onSubmit={handleSaveFirebaseConfig} className="space-y-3">
+                <label className="block font-medium text-[#281C22]">
+                  كود تهيئة Firebase (JSON أو كائن JavaScript)
+                </label>
+                <textarea
+                  rows={6}
+                  placeholder={`{\n  "apiKey": "AIzaSy...",\n  "authDomain": "my-gift.firebaseapp.com",\n  "projectId": "my-gift",\n  "storageBucket": "my-gift.appspot.com",\n  "appId": "1:123..."\n}`}
+                  value={firebaseConfigInput}
+                  onChange={(e) => setFirebaseConfigInput(e.target.value)}
+                  className="w-full p-3 rounded-2xl bg-white border border-[#EADBCE] text-[#281C22] font-mono text-[11px] focus:outline-hidden focus:border-[#C05665]"
+                  dir="ltr"
+                />
+
+                {firebaseError && (
+                  <p className="text-xs text-red-700 bg-red-50 p-2.5 rounded-xl border border-red-200">
+                    {firebaseError}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSyncingToCloud}
+                    className="px-5 py-2.5 rounded-xl bg-[#682535] hover:bg-[#521b29] text-white font-medium text-xs shadow-md transition-all active:scale-98 cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Cloud className="w-4 h-4" />
+                    <span>{isSyncingToCloud ? 'جاري الربط والمزامنة...' : 'حفظ وتفعيل التزامن السحابي'}</span>
                   </button>
                 </div>
               </form>

@@ -8,7 +8,8 @@ import AdminPinModal from './components/AdminPinModal';
 import AdminDashboard from './components/AdminDashboard';
 import { apiService } from './services/apiService';
 import { storageService } from './services/storageService';
-import { Database, Sparkles } from 'lucide-react';
+import { firebaseService } from './services/firebaseService';
+import { Database, Sparkles, Cloud } from 'lucide-react';
 
 export default function App() {
   const [couple, setCouple] = useState(() => storageService.getCoupleData());
@@ -40,6 +41,23 @@ export default function App() {
   useEffect(() => {
     refreshData();
   }, [refreshData]);
+
+  // Real-time synchronization across all devices via Firebase
+  useEffect(() => {
+    if (firebaseService.isConfigured()) {
+      const unsub = firebaseService.subscribeRealtime(
+        (liveCouple) => {
+          if (liveCouple) setCouple((prev) => ({ ...prev, ...liveCouple }));
+        },
+        (liveMemories) => {
+          if (Array.isArray(liveMemories) && liveMemories.length > 0) {
+            setMemories(liveMemories);
+          }
+        }
+      );
+      return () => unsub();
+    }
+  }, []);
 
   // Check if user navigated to /admin or #admin
   useEffect(() => {
@@ -153,17 +171,27 @@ export default function App() {
         <div className="pt-3 px-4 flex justify-center">
           <div
             className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[10px] font-medium tracking-wide border transition-all ${
-              isBackendOnline
+              firebaseService.isConfigured()
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                : isBackendOnline
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                 : 'bg-[#F8E9EB] text-[#882B3B] border-[#F1D2D7]'
             }`}
             title={
-              isBackendOnline
+              firebaseService.isConfigured()
+                ? 'متصل بقاعدة بيانات Google Firebase السحابية - مزامنة حية 24/7'
+                : isBackendOnline
                 ? 'متصل بسيرفر Laravel API'
-                : 'وضع العمل المباشر والتخزين الدائم'
+                : 'وضع العمل المباشر والتخزين المحلي'
             }
           >
-            {isBackendOnline ? (
+            {firebaseService.isConfigured() ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+                <span>متصل سحابياً (Firebase 24/7)</span>
+              </>
+            ) : isBackendOnline ? (
               <>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <Database className="w-3 h-3 text-emerald-600" />
