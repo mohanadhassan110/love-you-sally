@@ -49,17 +49,33 @@ export default function TimelineItem({
 
   return (
     <div className="relative mb-8 sm:mb-14 md:mb-20 last:mb-0 w-full" dir="rtl">
-      {/* Central Timeline Milestone Node (Desktop only >= md) */}
-      <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 top-6 z-10 items-center justify-center">
-        <div className="w-8 h-8 rounded-full bg-[#FAF7F2] border-2 border-[#C89B53] shadow-xs flex items-center justify-center text-xs font-serif font-bold text-[#682535] bidi-text">
+      {/* Timeline Milestone Node (Sitting right on the vertical spine line on mobile & desktop) */}
+      <div className="absolute right-4 sm:right-6 md:left-1/2 md:right-auto -translate-x-1/2 top-6 z-10 flex items-center justify-center">
+        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FAF7F2] border-2 border-[#C05665] shadow-xs flex items-center justify-center text-xs font-serif font-bold text-[#682535] bidi-text hover:scale-110 transition-transform">
           {index + 1}
         </div>
       </div>
 
-      {/* Main Card Container: On mobile it is 100% full-width, on desktop 46% alternating */}
+      {/* Mobile connecting arm from right node to card */}
       <div
-        className={`w-full md:w-[46%] ${
-          isLeft ? 'md:ms-auto md:ps-4' : 'md:me-auto md:pe-4'
+        className="block md:hidden absolute top-9.5 right-4 w-5 h-[1.5px] bg-[#C05665]/50 pointer-events-none"
+        aria-hidden="true"
+      />
+
+      {/* Desktop connecting arm from central milestone node to the card */}
+      <div
+        className={`hidden md:block absolute top-10 h-[2px] w-7 pointer-events-none ${
+          isLeft
+            ? 'left-1/2 bg-gradient-to-l from-[#C89B53] to-transparent'
+            : 'right-1/2 bg-gradient-to-r from-[#C89B53] to-transparent'
+        }`}
+        aria-hidden="true"
+      />
+
+      {/* Main Card Container */}
+      <div
+        className={`w-full pr-10 sm:pr-14 md:pr-0 md:w-[46%] ${
+          isLeft ? 'md:ms-auto md:ps-6' : 'md:me-auto md:pe-6'
         }`}
       >
         <motion.article

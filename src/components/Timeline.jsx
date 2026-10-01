@@ -87,11 +87,32 @@ export default function Timeline({
 
       {/* Timeline Container */}
       <div className="relative w-full">
-        {/* Desktop Central Spine Line (hidden on mobile for clean full-width cards) */}
-        <div
-          className="hidden md:block absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-[2px] bg-gradient-to-b from-[#E2C082] via-[#C89B53] to-[#E2C082]/30"
-          aria-hidden="true"
-        />
+        {/* Romantic Spine Line (Visible on both mobile & desktop) */}
+        {processedMemories.length > 0 && (
+          <>
+            {/* Top Heart Node */}
+            <div
+              className="absolute -top-3 right-4 sm:right-6 md:left-1/2 md:right-auto -translate-x-1/2 z-20 w-7 h-7 rounded-full bg-[#FAF7F2] border-2 border-[#C05665] flex items-center justify-center text-[#C05665] shadow-xs"
+              title="بداية رحلتنا"
+            >
+              <Heart className="w-3.5 h-3.5 fill-[#C05665]" />
+            </div>
+
+            {/* Continuous Vertical Gradient Spine */}
+            <div
+              className="absolute top-2 bottom-4 right-4 sm:right-6 md:left-1/2 md:right-auto -translate-x-1/2 w-[2px] bg-gradient-to-b from-[#C05665] via-[#E2C082] to-[#C89B53]/40"
+              aria-hidden="true"
+            />
+
+            {/* Bottom Sparkle Node */}
+            <div
+              className="absolute -bottom-3 right-4 sm:right-6 md:left-1/2 md:right-auto -translate-x-1/2 z-20 w-6 h-6 rounded-full bg-[#FAF7F2] border-2 border-[#C89B53] flex items-center justify-center text-[#C89B53] shadow-xs"
+              title="قصتنا مستمرة إلى الأبد"
+            >
+              <Sparkles className="w-3 h-3" />
+            </div>
+          </>
+        )}
 
         {/* Timeline Memory Cards */}
         {processedMemories.length > 0 ? (
