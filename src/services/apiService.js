@@ -1,41 +1,33 @@
 import { storageService } from './storageService';
 import { firebaseService } from './firebaseService';
+import { cloudService } from './cloudService';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
 class ApiService {
   constructor() {
-    this.isBackendAvailable = null;
-    this.cloudProvider = firebaseService.isConfigured() ? 'firebase' : null;
+    this.isBackendOnline = true;
+    this.cloudProvider = firebaseService.isConfigured() ? 'firebase' : 'cloud';
   }
 
   async checkHealth() {
     if (firebaseService.isConfigured()) {
-      this.isBackendAvailable = true;
+      this.isBackendOnline = true;
       this.cloudProvider = 'firebase';
       return true;
     }
-    try {
-      const res = await fetch(`${API_BASE}/couple`, { signal: AbortSignal.timeout(3000) });
-      this.isBackendAvailable = res.ok;
-      this.cloudProvider = res.ok ? 'laravel' : null;
-      return res.ok;
-    } catch {
-      this.isBackendAvailable = false;
-      this.cloudProvider = null;
-      return false;
-    }
+    this.isBackendOnline = true;
+    this.cloudProvider = 'cloud';
+    return true;
   }
 
   async getCoupleData() {
-    // 1. Try Firebase if configured
+    // 1. Firebase if user configured it
     if (firebaseService.isConfigured()) {
       try {
         const fireData = await firebaseService.getCoupleData();
         if (fireData) {
           storageService.saveCoupleData(fireData);
-          this.isBackendAvailable = true;
-          this.cloudProvider = 'firebase';
           return fireData;
         }
       } catch (err) {
@@ -43,20 +35,14 @@ class ApiService {
       }
     }
 
-    // 2. Try Laravel backend
+    // 2. Automated 24/7 Cloud Sync
     try {
-      const res = await fetch(`${API_BASE}/couple`, { signal: AbortSignal.timeout(3000) });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data) {
-          storageService.saveCoupleData(json.data);
-          this.isBackendAvailable = true;
-          this.cloudProvider = 'laravel';
-          return json.data;
-        }
+      const cloudData = await cloudService.getCoupleData();
+      if (cloudData) {
+        return cloudData;
       }
-    } catch {
-      // Backend not running on this device
+    } catch (err) {
+      console.warn('Cloud sync error, using local fallback:', err);
     }
 
     // 3. Fallback to localStorage
@@ -64,31 +50,15 @@ class ApiService {
   }
 
   async saveCoupleData(data) {
-    // 1. Save to Firebase if configured
+    // 1. Firebase if configured
     if (firebaseService.isConfigured()) {
       await firebaseService.saveCoupleData(data);
-      storageService.saveCoupleData(data);
-      return data;
     }
 
-    // 2. Try Laravel API
-    try {
-      const res = await fetch(`${API_BASE}/couple`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        const saved = json.data || data;
-        storageService.saveCoupleData(saved);
-        return saved;
-      }
-    } catch {
-      // Fallback
-    }
+    // 2. Save to 24/7 Cloud Sync
+    await cloudService.saveCoupleData(data);
 
-    // 3. Local storage
+    // 3. Save locally
     storageService.saveCoupleData(data);
     return data;
   }
@@ -99,15 +69,13 @@ class ApiService {
   }
 
   async getMemories(params = {}) {
-    // 1. Try Firebase
+    // 1. Firebase if configured
     if (firebaseService.isConfigured()) {
       try {
         const fireMemories = await firebaseService.getMemories();
         if (Array.isArray(fireMemories) && fireMemories.length > 0) {
           const formatted = fireMemories.map(normalizeMemory);
           storageService.saveMemories(formatted);
-          this.isBackendAvailable = true;
-          this.cloudProvider = 'firebase';
           return formatted;
         }
       } catch (err) {
@@ -115,26 +83,16 @@ class ApiService {
       }
     }
 
-    // 2. Try Laravel
+    // 2. Automated 24/7 Cloud Sync
     try {
-      const url = new URL(`${API_BASE}/memories`);
-      if (params.favorite) url.searchParams.set('favorite', '1');
-      if (params.search) url.searchParams.set('search', params.search);
-      if (params.order) url.searchParams.set('order', params.order);
-
-      const res = await fetch(url.toString(), { signal: AbortSignal.timeout(3000) });
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json.data)) {
-          const formatted = json.data.map(normalizeMemory);
-          storageService.saveMemories(formatted);
-          this.isBackendAvailable = true;
-          this.cloudProvider = 'laravel';
-          return formatted;
-        }
+      const cloudMemories = await cloudService.getMemories();
+      if (Array.isArray(cloudMemories) && cloudMemories.length > 0) {
+        const formatted = cloudMemories.map(normalizeMemory);
+        storageService.saveMemories(formatted);
+        return formatted;
       }
-    } catch {
-      // Backend not running on this device
+    } catch (err) {
+      console.warn('Cloud sync error, using local fallback:', err);
     }
 
     // 3. Fallback to localStorage
@@ -154,56 +112,17 @@ class ApiService {
       likes: memoryData.likes || 0,
     };
 
-    // 1. Try Firebase
+    // 1. Save to Firebase if configured
     if (firebaseService.isConfigured()) {
-      const created = await firebaseService.addMemory(cleanMemory);
-      storageService.addMemory(created || cleanMemory);
-      return created || cleanMemory;
+      await firebaseService.addMemory(cleanMemory);
     }
 
-    // 2. Try Laravel
-    try {
-      let body;
-      const headers = {};
+    // 2. Save to 24/7 Cloud Sync
+    await cloudService.addMemory(cleanMemory);
 
-      if (rawFile) {
-        const formData = new FormData();
-        formData.append('image_file', rawFile);
-        formData.append('title', cleanMemory.title);
-        formData.append('date', cleanMemory.date);
-        formData.append('story', cleanMemory.story);
-        if (cleanMemory.isFavorite) formData.append('is_favorite', '1');
-        body = formData;
-      } else {
-        headers['Content-Type'] = 'application/json';
-        body = JSON.stringify({
-          title: cleanMemory.title,
-          date: cleanMemory.date,
-          story: cleanMemory.story,
-          image: cleanMemory.image,
-          media: cleanMemory.media,
-          is_favorite: cleanMemory.isFavorite,
-        });
-      }
-
-      const res = await fetch(`${API_BASE}/memories`, {
-        method: 'POST',
-        headers,
-        body,
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        const created = normalizeMemory(json.data);
-        storageService.addMemory(created);
-        return created;
-      }
-    } catch (err) {
-      console.warn('Backend error adding memory, saving to local cache:', err.message);
-    }
-
-    // 3. Fallback to localStorage
-    return storageService.addMemory(cleanMemory);
+    // 3. Save locally
+    storageService.addMemory(cleanMemory);
+    return cleanMemory;
   }
 
   async updateMemory(id, memoryData, rawFile = null) {
@@ -215,104 +134,34 @@ class ApiService {
       title: memoryData.title || memoryData.story?.slice(0, 30) || 'ذكرى جميلة',
     };
 
-    // 1. Try Firebase
+    // 1. Firebase if configured
     if (firebaseService.isConfigured()) {
       await firebaseService.updateMemory(id, cleanMemory);
-      return storageService.updateMemory(id, cleanMemory);
     }
 
-    // 2. Try Laravel
-    try {
-      let body;
-      const headers = {};
+    // 2. Save to 24/7 Cloud Sync
+    await cloudService.updateMemory(id, cleanMemory);
 
-      if (rawFile) {
-        const formData = new FormData();
-        formData.append('image_file', rawFile);
-        if (cleanMemory.title) formData.append('title', cleanMemory.title);
-        if (cleanMemory.date) formData.append('date', cleanMemory.date);
-        if (cleanMemory.story !== undefined) formData.append('story', cleanMemory.story);
-        if (cleanMemory.isFavorite !== undefined) formData.append('is_favorite', cleanMemory.isFavorite ? '1' : '0');
-        body = formData;
-      } else {
-        headers['Content-Type'] = 'application/json';
-        body = JSON.stringify({
-          title: cleanMemory.title,
-          date: cleanMemory.date,
-          story: cleanMemory.story,
-          image: cleanMemory.image,
-          media: cleanMemory.media,
-          is_favorite: cleanMemory.isFavorite,
-        });
-      }
-
-      const res = await fetch(`${API_BASE}/memories/${id}`, {
-        method: 'POST',
-        headers,
-        body,
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        const updated = normalizeMemory(json.data);
-        storageService.updateMemory(id, updated);
-        return updated;
-      }
-    } catch (err) {
-      console.warn('Backend error updating memory:', err.message);
-    }
-
-    // 3. Fallback
+    // 3. Save locally
     return storageService.updateMemory(id, cleanMemory);
   }
 
   async deleteMemory(id) {
-    // 1. Try Firebase
     if (firebaseService.isConfigured()) {
       await firebaseService.deleteMemory(id);
-      return storageService.deleteMemory(id);
     }
-
-    // 2. Try Laravel
-    try {
-      const res = await fetch(`${API_BASE}/memories/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        storageService.deleteMemory(id);
-        return true;
-      }
-    } catch {
-      // Fallback
-    }
-
+    await cloudService.deleteMemory(id);
     storageService.deleteMemory(id);
     return true;
   }
 
   async toggleLike(id) {
-    // 1. Try Firebase
     if (firebaseService.isConfigured()) {
-      const likes = await firebaseService.toggleLike(id);
-      if (likes !== null) {
-        storageService.updateMemory(id, { likes });
-        return likes;
-      }
+      await firebaseService.toggleLike(id);
     }
-
-    // 2. Try Laravel
-    try {
-      const res = await fetch(`${API_BASE}/memories/${id}/like`, { method: 'POST' });
-      if (res.ok) {
-        const json = await res.json();
-        storageService.updateMemory(id, { likes: json.likes });
-        return json.likes;
-      }
-    } catch {
-      // Fallback
-    }
-
-    const updated = storageService.toggleLike(id);
-    const item = updated.find((m) => m.id === id);
-    return item ? item.likes : 0;
+    const newLikes = await cloudService.toggleLike(id);
+    storageService.updateMemory(id, { likes: newLikes });
+    return newLikes;
   }
 
   async exportBackup() {
@@ -321,16 +170,21 @@ class ApiService {
 
   async importBackup(jsonString) {
     const res = storageService.importBackup(jsonString);
-    if (res.success && firebaseService.isConfigured()) {
+    if (res.success) {
       const couple = storageService.getCoupleData();
       const memories = storageService.getMemories();
-      await firebaseService.uploadAllToFirebase(couple, memories);
+      await cloudService.saveCoupleData(couple);
+      await cloudService.saveMemories(memories);
+      if (firebaseService.isConfigured()) {
+        await firebaseService.uploadAllToFirebase(couple, memories);
+      }
     }
     return res;
   }
 
   async resetToDefaults() {
-    const defaults = storageService.resetToDefaults();
+    const defaults = await cloudService.resetToDefaults();
+    storageService.resetToDefaults();
     if (firebaseService.isConfigured()) {
       await firebaseService.uploadAllToFirebase(defaults.couple, defaults.memories);
     }

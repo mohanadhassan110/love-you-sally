@@ -17,10 +17,9 @@ export default function App() {
   const [activeLightboxIndex, setActiveLightboxIndex] = useState(null);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [isAdminDashboardOpen, setIsAdminDashboardOpen] = useState(false);
-  const [isBackendOnline, setIsBackendOnline] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initial load from Laravel API or LocalStorage
+  // Initial load from Cloud Sync or LocalStorage
   const refreshData = useCallback(async () => {
     try {
       const [fetchedCouple, fetchedMemories] = await Promise.all([
@@ -29,10 +28,8 @@ export default function App() {
       ]);
       if (fetchedCouple) setCouple(fetchedCouple);
       if (fetchedMemories) setMemories(fetchedMemories);
-      setIsBackendOnline(apiService.isBackendAvailable);
     } catch (err) {
       console.warn('Error loading initial data:', err);
-      setIsBackendOnline(false);
     } finally {
       setIsLoading(false);
     }
@@ -42,7 +39,7 @@ export default function App() {
     refreshData();
   }, [refreshData]);
 
-  // Real-time synchronization across all devices via Firebase
+  // Real-time synchronization across all devices via Firebase if configured
   useEffect(() => {
     if (firebaseService.isConfigured()) {
       const unsub = firebaseService.subscribeRealtime(
@@ -170,39 +167,12 @@ export default function App() {
         {/* Subtle Connection Status Badge */}
         <div className="pt-3 px-4 flex justify-center">
           <div
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[10px] font-medium tracking-wide border transition-all ${
-              firebaseService.isConfigured()
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                : isBackendOnline
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                : 'bg-[#F8E9EB] text-[#882B3B] border-[#F1D2D7]'
-            }`}
-            title={
-              firebaseService.isConfigured()
-                ? 'متصل بقاعدة بيانات Google Firebase السحابية - مزامنة حية 24/7'
-                : isBackendOnline
-                ? 'متصل بسيرفر Laravel API'
-                : 'وضع العمل المباشر والتخزين المحلي'
-            }
+            className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-[10px] font-medium tracking-wide border transition-all bg-emerald-50 text-emerald-800 border-emerald-200 shadow-2xs"
+            title="متصل بالسحابة 24/7 - جميع التعديلات متزامنة ومحفوظة أونلاين وتفتح من أي موبايل يلمس بطاقة NFC"
           >
-            {firebaseService.isConfigured() ? (
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-                <span>متصل سحابياً (Firebase 24/7)</span>
-              </>
-            ) : isBackendOnline ? (
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <Database className="w-3 h-3 text-emerald-600" />
-                <span>متصل بسيرفر لارافيل</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3 h-3 text-[#C05665]" />
-                <span>جاهز للعمل المباشر عبر Vercel &amp; NFC</span>
-              </>
-            )}
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+            <span>متصل سحابياً 24/7 (مزامنة فورية للـ NFC)</span>
           </div>
         </div>
 
