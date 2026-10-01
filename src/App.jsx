@@ -111,18 +111,23 @@ export default function App() {
     return await apiService.verifyPin(pin);
   }, []);
 
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+
   // Lightbox handlers
-  const handleOpenLightbox = (memory) => {
+  const handleOpenLightbox = (memory, items = null, initialIndex = 0) => {
     const index = memories.findIndex((m) => m.id === memory.id);
     setActiveLightboxIndex(index >= 0 ? index : 0);
+    setActiveMediaIndex(initialIndex || 0);
   };
 
   const handleCloseLightbox = () => {
     setActiveLightboxIndex(null);
+    setActiveMediaIndex(0);
   };
 
   const handleLightboxNavigate = (direction) => {
     if (activeLightboxIndex === null || memories.length === 0) return;
+    setActiveMediaIndex(0);
     if (direction === 'prev') {
       setActiveLightboxIndex((prev) =>
         prev > 0 ? prev - 1 : memories.length - 1
@@ -194,6 +199,7 @@ export default function App() {
       <LightboxModal
         memory={activeLightboxMemory}
         memories={memories}
+        initialMediaIndex={activeMediaIndex}
         onClose={handleCloseLightbox}
         onNavigate={handleLightboxNavigate}
       />

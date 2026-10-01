@@ -65,16 +65,21 @@ export const storageService = {
     };
     const updated = [newMemory, ...memories];
     storageService.saveMemories(updated);
-    return updated;
+    return newMemory;
   },
 
   updateMemory: (id, updatedFields) => {
     const memories = storageService.getMemories();
-    const updated = memories.map((item) =>
-      item.id === id ? { ...item, ...updatedFields } : item
-    );
+    let updatedItem = null;
+    const updated = memories.map((item) => {
+      if (item.id === id) {
+        updatedItem = { ...item, ...updatedFields };
+        return updatedItem;
+      }
+      return item;
+    });
     storageService.saveMemories(updated);
-    return updated;
+    return updatedItem || { id, ...updatedFields };
   },
 
   deleteMemory: (id) => {

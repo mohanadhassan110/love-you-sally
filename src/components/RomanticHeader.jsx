@@ -42,7 +42,6 @@ export default function RomanticHeader({ couple, onOpenAdmin }) {
   const handleSendLove = (e) => {
     setLoveTaps((prev) => prev + 1);
 
-    // Subtle romantic confetti explosion from button coordinates
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (rect.left + rect.width / 2) / window.innerWidth;
     const y = (rect.top + rect.height / 2) / window.innerHeight;
@@ -58,13 +57,13 @@ export default function RomanticHeader({ couple, onOpenAdmin }) {
   };
 
   return (
-    <header className="relative pt-12 pb-14 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto text-center" dir="rtl">
+    <header className="relative pt-8 sm:pt-12 pb-10 sm:pb-14 px-3 sm:px-6 lg:px-8 max-w-4xl mx-auto text-center w-full overflow-hidden" dir="rtl">
       {/* Top Floating Controls Bar */}
-      <div className="flex items-center justify-between max-w-md mx-auto mb-8 px-4 py-2 rounded-full romantic-glass shadow-xs">
+      <div className="flex items-center justify-between max-w-xs sm:max-w-md mx-auto mb-6 sm:mb-8 px-3 py-1.5 sm:py-2 rounded-full romantic-glass shadow-xs">
         {/* Ambient Music Button */}
         <button
           onClick={toggleMusic}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+          className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all cursor-pointer ${
             isPlayingAudio
               ? 'bg-[#F8E9EB] text-[#882B3B] shadow-xs'
               : 'text-[#6B5C64] hover:text-[#281C22] hover:bg-[#F5EFEB]'
@@ -88,7 +87,7 @@ export default function RomanticHeader({ couple, onOpenAdmin }) {
         {/* Discreet Admin Lock */}
         <button
           onClick={onOpenAdmin}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-[#8B7B83] hover:text-[#682535] hover:bg-[#F8E9EB]/60 transition-all"
+          className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium text-[#8B7B83] hover:text-[#682535] hover:bg-[#F8E9EB]/60 transition-all cursor-pointer"
           title="إدارة الذكريات (رمز المرور السري)"
           aria-label="لوحة التحكم السرية"
         >
@@ -98,79 +97,79 @@ export default function RomanticHeader({ couple, onOpenAdmin }) {
       </div>
 
       {/* Main Romantic Names & Title */}
-      <div className="space-y-4">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#F8E9EB]/80 border border-[#F1D2D7] text-xs font-semibold text-[#882B3B] tracking-wide">
-          <Sparkles className="w-3.5 h-3.5 text-[#C89B53]" />
+      <div className="space-y-3 sm:space-y-4">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F8E9EB]/80 border border-[#F1D2D7] text-[11px] font-semibold text-[#882B3B]">
+          <Sparkles className="w-3 h-3 text-[#C89B53]" />
           <span>ذكرى حية تخلّد أجمل أوقاتنا</span>
         </div>
 
-        <h1 className="text-4xl sm:text-6xl md:text-7xl font-serif font-normal text-[#281C22] tracking-tight leading-tight">
+        <h1 className="text-3xl sm:text-5xl md:text-7xl font-serif font-normal text-[#281C22] tracking-tight leading-tight break-words">
           {couple?.partnerOne || 'أحمد'}
-          <span className="inline-block mx-3 text-[#C05665] font-serif italic text-3xl sm:text-5xl">&amp;</span>
+          <span className="inline-block mx-2 text-[#C05665] font-serif italic text-2xl sm:text-5xl">&amp;</span>
           {couple?.partnerTwo || 'سارة'}
         </h1>
 
-        <p className="text-base sm:text-xl font-serif text-[#5F4F57] max-w-xl mx-auto leading-relaxed italic px-2">
-          {couple?.quote || '«في كل العالم، ليس هناك قلبٌ لي كقلبك.. وفي كل العالم، ليس هناك حبٌ لكِ كحبي.»'}
+        <p className="text-sm sm:text-lg font-serif text-[#5F4F57] max-w-lg mx-auto leading-relaxed italic px-2">
+          {couple?.quote || '«في كل العالم، ليس هناك قلبٌ لي كقلبكِ.. وفي كل العالم، ليس هناك حبٌ لكِ كحبي.»'}
         </p>
       </div>
 
-      {/* Real-time Relationship Counter Box */}
-      <div className="mt-8 max-w-xl mx-auto p-5 sm:p-6 rounded-3xl romantic-glass shadow-xs">
-        <div className="flex items-center justify-center gap-2 text-xs tracking-wider text-[#8B7B83] font-semibold mb-4">
+      {/* Real-time Relationship Counter Box (Optimized for Mobile) */}
+      <div className="mt-6 sm:mt-8 max-w-lg mx-auto p-3.5 sm:p-6 rounded-3xl romantic-glass shadow-xs w-full">
+        <div className="flex items-center justify-center gap-1.5 text-[11px] tracking-wider text-[#8B7B83] font-semibold mb-3">
           <Calendar className="w-3.5 h-3.5 text-[#C05665]" />
           <span>رحلتنا معاً مستمرة منذ</span>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 sm:gap-4">
-          <div className="bg-[#FAF7F2]/90 rounded-2xl p-2.5 sm:p-3 border border-[#EADBCE]">
-            <div className="text-2xl sm:text-4xl font-serif font-bold text-[#682535] bidi-text">
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-3">
+          <div className="bg-[#FAF7F2]/90 rounded-2xl p-2 sm:p-3 border border-[#EADBCE] min-w-0">
+            <div className="text-xl sm:text-3xl font-serif font-bold text-[#682535] bidi-text truncate">
               {timeTogether.days}
             </div>
-            <div className="text-[11px] sm:text-xs text-[#8B7B83] font-medium mt-0.5">
+            <div className="text-[10px] sm:text-xs text-[#8B7B83] font-medium mt-0.5">
               يوم
             </div>
           </div>
 
-          <div className="bg-[#FAF7F2]/90 rounded-2xl p-2.5 sm:p-3 border border-[#EADBCE]">
-            <div className="text-2xl sm:text-4xl font-serif font-bold text-[#682535] bidi-text">
+          <div className="bg-[#FAF7F2]/90 rounded-2xl p-2 sm:p-3 border border-[#EADBCE] min-w-0">
+            <div className="text-xl sm:text-3xl font-serif font-bold text-[#682535] bidi-text truncate">
               {timeTogether.hours.toString().padStart(2, '0')}
             </div>
-            <div className="text-[11px] sm:text-xs text-[#8B7B83] font-medium mt-0.5">
+            <div className="text-[10px] sm:text-xs text-[#8B7B83] font-medium mt-0.5">
               ساعة
             </div>
           </div>
 
-          <div className="bg-[#FAF7F2]/90 rounded-2xl p-2.5 sm:p-3 border border-[#EADBCE]">
-            <div className="text-2xl sm:text-4xl font-serif font-bold text-[#682535] bidi-text">
+          <div className="bg-[#FAF7F2]/90 rounded-2xl p-2 sm:p-3 border border-[#EADBCE] min-w-0">
+            <div className="text-xl sm:text-3xl font-serif font-bold text-[#682535] bidi-text truncate">
               {timeTogether.minutes.toString().padStart(2, '0')}
             </div>
-            <div className="text-[11px] sm:text-xs text-[#8B7B83] font-medium mt-0.5">
+            <div className="text-[10px] sm:text-xs text-[#8B7B83] font-medium mt-0.5">
               دقيقة
             </div>
           </div>
 
-          <div className="bg-[#FAF7F2]/90 rounded-2xl p-2.5 sm:p-3 border border-[#EADBCE]">
-            <div className="text-2xl sm:text-4xl font-serif font-bold text-[#C05665] bidi-text">
+          <div className="bg-[#FAF7F2]/90 rounded-2xl p-2 sm:p-3 border border-[#EADBCE] min-w-0">
+            <div className="text-xl sm:text-3xl font-serif font-bold text-[#C05665] bidi-text truncate">
               {timeTogether.seconds.toString().padStart(2, '0')}
             </div>
-            <div className="text-[11px] sm:text-xs text-[#8B7B83] font-medium mt-0.5">
+            <div className="text-[10px] sm:text-xs text-[#8B7B83] font-medium mt-0.5">
               ثانية
             </div>
           </div>
         </div>
 
         {/* Tap to Send Love Interactive Button */}
-        <div className="mt-5 pt-4 border-t border-[#F1D2D7]/60 flex items-center justify-center">
+        <div className="mt-4 pt-3 border-t border-[#F1D2D7]/60 flex items-center justify-center">
           <button
             onClick={handleSendLove}
-            className="group relative inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#F8E9EB] hover:bg-[#F1D2D7] text-[#682535] text-xs sm:text-sm font-semibold transition-all active:scale-95 shadow-2xs"
+            className="group relative inline-flex items-center gap-1.5 px-5 py-2 rounded-full bg-[#F8E9EB] hover:bg-[#F1D2D7] text-[#682535] text-xs font-semibold transition-all active:scale-95 shadow-2xs cursor-pointer"
             aria-label="أرسل نبضة حب"
           >
             <Heart className="w-4 h-4 text-[#C05665] fill-[#C05665] group-hover:scale-125 transition-transform" />
             <span>نبضة حب لكِ</span>
             {loveTaps > 0 && (
-              <span className="ms-1 px-2 py-0.5 rounded-full bg-[#682535] text-white text-[11px] font-bold bidi-text">
+              <span className="ms-1 px-1.5 py-0.5 rounded-full bg-[#682535] text-white text-[10px] font-bold bidi-text">
                 +{loveTaps}
               </span>
             )}

@@ -6,6 +6,7 @@ import {
   Settings,
   Upload,
   Image as ImageIcon,
+  Video as VideoIcon,
   Trash2,
   Edit3,
   Star,
@@ -15,9 +16,10 @@ import {
   CheckCircle2,
   ExternalLink,
   Smartphone,
+  Plus,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { compressImageFile } from '../utils/imageCompressor';
+import { processMediaFile } from '../utils/imageCompressor';
 import EditMemoryModal from './EditMemoryModal';
 
 export default function AdminDashboard({
@@ -37,19 +39,14 @@ export default function AdminDashboard({
   const [editingMemory, setEditingMemory] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
 
-  // Add Memory form state
-  const [newMemory, setNewMemory] = useState({
-    title: '',
-    date: new Date().toISOString().split('T')[0],
-    tag: '',
-    location: '',
-    milestone: (memories.length + 1).toString().padStart(2, '0'),
-    story: '',
-    image: '',
-    isFavorite: false,
-  });
-  const [rawFile, setRawFile] = useState(null);
-  const [isCompressing, setIsCompressing] = useState(false);
+  // Add Memory form state: multiple media + description only
+  const [newMediaList, setNewMediaList] = useState([]);
+  const [newUrlInput, setNewUrlInput] = useState('');
+  const [newUrlType, setNewUrlType] = useState('image');
+  const [newStory, setNewStory] = useState('');
+  const [newDate, setNewDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newIsFavorite, setNewIsFavorite] = useState(false);
+  const [isProcessingMedia, setIsProcessingMedia] = useState(false);
   const [addError, setAddError] = useState('');
 
   // Couple settings state
@@ -70,36 +67,77 @@ export default function AdminDashboard({
     setTimeout(() => setToastMessage(''), 3000);
   };
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Upload multiple images/videos
+  const handleMultipleFiles = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    setIsProcessingMedia(true);
+    setAddError('');
 
     try {
-      setRawFile(file);
-      setIsCompressing(true);
-      setAddError('');
-      const compressedDataUrl = await compressImageFile(file);
-      setNewMemory((prev) => ({ ...prev, image: compressedDataUrl }));
-    } catch (err) {
-      setAddError(err.message || 'حدث خطأ أثناء معالجة الصورة');
+      const items = [];
+      for (const file of files) {
+        try {
+          const item = await processMediaFile(file);
+          items.push(item);
+        } catch (err) {
+          console.warn('File processing error:', file.name, err);
+          setAddError(err.message || 'حدث خطأ أثناء معالجة ملف.');
+        }
+      }
+      if (items.length > 0) {
+        setNewMediaList((prev) => [...prev, ...items]);
+      }
     } finally {
-      setIsCompressing(false);
+      setIsProcessingMedia(false);
+      e.target.value = '';
     }
+  };
+
+  // Add media URL
+  const handleAddUrl = (e) => {
+    e.preventDefault();
+    if (!newUrlInput.trim()) return;
+
+    const isVid =
+      newUrlType === 'video' ||
+      newUrlInput.match(/\.(mp4|webm|mov|ogg)$/i) ||
+      newUrlInput.includes('youtube.com') ||
+      newUrlInput.includes('vimeo.com');
+
+    setNewMediaList((prev) => [
+      ...prev,
+      { type: isVid ? 'video' : 'image', url: newUrlInput.trim() },
+    ]);
+    setNewUrlInput('');
+  };
+
+  const handleRemoveMedia = (idxToRemove) => {
+    setNewMediaList((prev) => prev.filter((_, idx) => idx !== idxToRemove));
   };
 
   const handleAddSubmit = (e) => {
     e.preventDefault();
-    if (!newMemory.title.trim()) {
-      setAddError('يرجى كتابة عنوان لهذه الذكرى.');
+    if (newMediaList.length === 0) {
+      setAddError('يرجى إضافة صورة أو فيديو واحد على الأقل للذكرى.');
       return;
     }
-    if (!newMemory.image.trim()) {
-      setAddError('يرجى رفع صورة أو إدخال رابط صورة صالح.');
+    if (!newStory.trim()) {
+      setAddError('يرجى كتابة وصف أو قصة لهذه الذكرى.');
       return;
     }
 
-    onAddMemory(newMemory, rawFile);
-    setRawFile(null);
+    const createdItem = {
+      media: newMediaList,
+      image: newMediaList[0]?.url || '',
+      story: newStory.trim(),
+      title: newStory.trim().slice(0, 30),
+      date: newDate,
+      isFavorite: newIsFavorite,
+    };
+
+    onAddMemory(createdItem);
 
     // Fire romantic celebration confetti
     confetti({
@@ -112,16 +150,10 @@ export default function AdminDashboard({
     showToast('تمت إضافة الذكرى للخط الزمني بنجاح!');
 
     // Reset form
-    setNewMemory({
-      title: '',
-      date: new Date().toISOString().split('T')[0],
-      tag: '',
-      location: '',
-      milestone: (memories.length + 2).toString().padStart(2, '0'),
-      story: '',
-      image: '',
-      isFavorite: false,
-    });
+    setNewMediaList([]);
+    setNewStory('');
+    setNewDate(new Date().toISOString().split('T')[0]);
+    setNewIsFavorite(false);
     setAddError('');
   };
 
@@ -145,13 +177,13 @@ export default function AdminDashboard({
         className="relative w-full max-w-4xl bg-[#FAF7F2] rounded-3xl shadow-2xl border border-[#C89B53]/30 flex flex-col max-h-[94vh] overflow-hidden my-auto text-right"
       >
         {/* Top Header Bar */}
-        <div className="flex items-center justify-between px-5 sm:px-8 py-4 border-b border-[#EADBCE] bg-[#F5EFEB]/80">
+        <div className="flex items-center justify-between px-4 sm:px-8 py-3.5 border-b border-[#EADBCE] bg-[#F5EFEB]/80">
           <div>
-            <h2 className="text-xl sm:text-2xl font-serif font-bold text-[#281C22]">
+            <h2 className="text-lg sm:text-2xl font-serif font-bold text-[#281C22]">
               لوحة مُنسّق الذكريات
             </h2>
-            <p className="text-xs text-[#6B5C64]">
-              تحكّم في تفاصيل ومحطات قصة حبكما في هذا الخط الزمني
+            <p className="text-[11px] sm:text-xs text-[#6B5C64]">
+              تحكّم في ذكريات ومحطات قصة حبكما في هذا الخط الزمني
             </p>
           </div>
 
@@ -161,7 +193,7 @@ export default function AdminDashboard({
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-white hover:bg-[#F8E9EB] text-[#682535] border border-[#EADBCE] transition-colors cursor-pointer"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              <span>معاينة الهدية</span>
+              <span className="hidden sm:inline">معاينة الهدية</span>
             </button>
             <button
               onClick={onClose}
@@ -182,22 +214,22 @@ export default function AdminDashboard({
         )}
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 px-4 sm:px-8 pt-3 border-b border-[#EADBCE] bg-white overflow-x-auto">
+        <div className="flex items-center gap-1 px-3 sm:px-8 pt-2.5 border-b border-[#EADBCE] bg-white overflow-x-auto select-none">
           <button
             onClick={() => setActiveTab('add')}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all shrink-0 cursor-pointer ${
               activeTab === 'add'
                 ? 'border-[#C05665] text-[#882B3B] font-bold'
                 : 'border-transparent text-[#6B5C64] hover:text-[#281C22]'
             }`}
           >
             <PlusCircle className="w-4 h-4 text-[#C05665]" />
-            <span>إضافة محطة جديدة</span>
+            <span>إضافة ذكرى جديدة</span>
           </button>
 
           <button
             onClick={() => setActiveTab('manage')}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all shrink-0 cursor-pointer ${
               activeTab === 'manage'
                 ? 'border-[#C05665] text-[#882B3B] font-bold'
                 : 'border-transparent text-[#6B5C64] hover:text-[#281C22]'
@@ -209,7 +241,7 @@ export default function AdminDashboard({
 
           <button
             onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all shrink-0 cursor-pointer ${
               activeTab === 'settings'
                 ? 'border-[#C05665] text-[#882B3B] font-bold'
                 : 'border-transparent text-[#6B5C64] hover:text-[#281C22]'
@@ -221,7 +253,7 @@ export default function AdminDashboard({
 
           <button
             onClick={() => setActiveTab('nfc')}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all shrink-0 cursor-pointer ${
               activeTab === 'nfc'
                 ? 'border-[#C05665] text-[#882B3B] font-bold'
                 : 'border-transparent text-[#6B5C64] hover:text-[#281C22]'
@@ -233,27 +265,27 @@ export default function AdminDashboard({
 
           <button
             onClick={() => setActiveTab('backup')}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium border-b-2 transition-all shrink-0 cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-medium border-b-2 transition-all shrink-0 cursor-pointer ${
               activeTab === 'backup'
                 ? 'border-[#C05665] text-[#882B3B] font-bold'
                 : 'border-transparent text-[#6B5C64] hover:text-[#281C22]'
             }`}
           >
             <RotateCcw className="w-4 h-4 text-[#8B7B83]" />
-            <span>نسخ احتياطي واستعادة</span>
+            <span>نسخ احتياطي</span>
           </button>
         </div>
 
         {/* Scrollable Tab Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8">
-          {/* TAB 1: ADD NEW MEMORY */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-7">
+          {/* TAB 1: ADD NEW MEMORY (Media + Description Only) */}
           {activeTab === 'add' && (
             <div className="max-w-2xl mx-auto">
               <h3 className="text-xl font-serif font-bold text-[#281C22] mb-1">
-                إضافة محطة ذكريات جديدة
+                إضافة ذكرى جديدة
               </h3>
-              <p className="text-xs text-[#6B5C64] mb-6">
-                ارفع صورة تذكارية، وثّق التاريخ، واكتب كلمات نابعة من القلب.
+              <p className="text-xs text-[#6B5C64] mb-5">
+                ارفع صورة أو فيديو (أو عدة صور وفيديوهات)، وثّق التاريخ، واكتب الوصف النابع من القلب.
               </p>
 
               {addError && (
@@ -263,188 +295,149 @@ export default function AdminDashboard({
               )}
 
               <form onSubmit={handleAddSubmit} className="space-y-4 text-xs">
-                {/* Image Upload Area */}
+                {/* 1. Media Items Manager */}
                 <div>
                   <label className="block font-medium text-[#281C22] mb-1.5">
-                    صورة المحطة *
+                    صور وفيديوهات الذكرى * ({newMediaList.length})
                   </label>
-                  <div className="flex flex-col sm:flex-row gap-4 items-start">
-                    {newMemory.image ? (
-                      <div className="relative w-full sm:w-44 aspect-[4/3] rounded-2xl overflow-hidden bg-black shrink-0 border border-[#EADBCE] shadow-2xs">
-                        <img
-                          src={newMemory.image}
-                          alt="معاينة"
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setNewMemory({ ...newMemory, image: '' })}
-                          className="absolute top-2 start-2 p-1 rounded-full bg-black/60 text-white hover:bg-black cursor-pointer"
-                          title="إزالة الصورة"
+
+                  {/* Previews Grid */}
+                  {newMediaList.length > 0 && (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-3">
+                      {newMediaList.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="relative aspect-square rounded-2xl overflow-hidden bg-black border border-[#EADBCE] group"
                         >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="w-full sm:w-44 aspect-[4/3] rounded-2xl bg-white border-2 border-dashed border-[#C89B53]/50 flex flex-col items-center justify-center p-4 text-center cursor-pointer hover:bg-[#F8E9EB]/30 transition-colors shrink-0">
-                        <Upload className="w-6 h-6 text-[#C05665] mb-2" />
-                        <span className="font-semibold text-[#682535]">
-                          {isCompressing ? 'جاري التحسين...' : 'رفع صورة من جهازك'}
-                        </span>
-                        <span className="text-[10px] text-[#8B7B83] mt-1">
-                          تُحسّن تلقائياً لسرعة الهاتف
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileUpload}
-                          disabled={isCompressing}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
+                          {item.type === 'video' ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-[#22181C] text-white">
+                              <VideoIcon className="w-6 h-6 text-[#E2C082] mb-1" />
+                              <span className="text-[9px] text-[#EADBCE]">فيديو</span>
+                            </div>
+                          ) : (
+                            <img
+                              src={item.url}
+                              alt="معاينة"
+                              className="w-full h-full object-cover"
+                            />
+                          )}
 
-                    <div className="flex-1 w-full space-y-2">
-                      <p className="text-[#6B5C64] leading-relaxed">
-                        اختر صورة من ألبوم هاتفك أو حاسوبك، أو ضع رابط صورة مباشر بالأسفل.
-                      </p>
-                      <input
-                        type="url"
-                        placeholder="https://images.unsplash.com/... أو رابط مباشر"
-                        value={newMemory.image}
-                        onChange={(e) =>
-                          setNewMemory({ ...newMemory, image: e.target.value })
-                        }
-                        className="w-full px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
-                        dir="ltr"
-                      />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveMedia(idx)}
+                            className="absolute top-1 start-1 p-1 rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors cursor-pointer shadow-xs"
+                            title="إزالة هذا الوسيط"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+
+                          <div className="absolute bottom-1 end-1 px-1.5 py-0.5 rounded-sm bg-black/60 text-white text-[9px] bidi-text">
+                            #{idx + 1}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                </div>
+                  )}
 
-                {/* Title & Milestone Number */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                  <div className="sm:col-span-2">
-                    <label className="block font-medium text-[#281C22] mb-1">
-                      عنوان الذكرى *
+                  {/* Upload button (multiple images/videos) */}
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <label className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white border-2 border-dashed border-[#C89B53]/50 text-[#682535] hover:bg-[#F8E9EB]/30 cursor-pointer transition-colors font-medium text-center">
+                      <Upload className="w-5 h-5 text-[#C05665]" />
+                      <div>
+                        <span className="block font-semibold">
+                          {isProcessingMedia
+                            ? 'جاري تجهيز الملفات...'
+                            : 'رفع صور أو فيديوهات من جهازك'}
+                        </span>
+                        <span className="block text-[10px] text-[#8B7B83] mt-0.5">
+                          يمكنك تحديد أكثر من صورة أو فيديو معاً
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*,video/*"
+                        onChange={handleMultipleFiles}
+                        disabled={isProcessingMedia}
+                        className="hidden"
+                      />
                     </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="مثال: نزهة الغروب على شاطئ الإسكندرية"
-                      value={newMemory.title}
-                      onChange={(e) =>
-                        setNewMemory({ ...newMemory, title: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
-                    />
                   </div>
-                  <div>
-                    <label className="block font-medium text-[#281C22] mb-1">
-                      رقم المحطة
-                    </label>
+
+                  {/* Direct URL input */}
+                  <div className="mt-2.5 flex items-center gap-2">
                     <input
-                      type="text"
-                      placeholder="01"
-                      value={newMemory.milestone}
-                      onChange={(e) =>
-                        setNewMemory({ ...newMemory, milestone: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
+                      type="url"
+                      placeholder="أو الصق رابط صورة أو فيديو مباشر هنا..."
+                      value={newUrlInput}
+                      onChange={(e) => setNewUrlInput(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
                       dir="ltr"
                     />
+                    <button
+                      type="button"
+                      onClick={handleAddUrl}
+                      className="px-3.5 py-2 rounded-xl bg-[#FAF7F2] border border-[#C89B53] text-[#682535] hover:bg-[#F8E9EB] font-medium flex items-center gap-1 cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>إضافة</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* Date & Tag */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-medium text-[#281C22] mb-1">
-                      تاريخ المحطة
-                    </label>
-                    <input
-                      type="date"
-                      value={newMemory.date}
-                      onChange={(e) =>
-                        setNewMemory({ ...newMemory, date: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
-                      dir="ltr"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-medium text-[#281C22] mb-1">
-                      تصنيف / طابع المحطة
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="مثال: أول لقاء، سفرة مميزة، عشاء رومانسي"
-                      value={newMemory.tag}
-                      onChange={(e) =>
-                        setNewMemory({ ...newMemory, tag: e.target.value })
-                      }
-                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
-                    />
-                  </div>
-                </div>
-
-                {/* Location */}
+                {/* 2. Heartfelt Story / Description */}
                 <div>
                   <label className="block font-medium text-[#281C22] mb-1">
-                    المكان
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="مثال: شاطئ دهب، أو مطبخنا الدافئ"
-                    value={newMemory.location}
-                    onChange={(e) =>
-                      setNewMemory({ ...newMemory, location: e.target.value })
-                    }
-                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
-                  />
-                </div>
-
-                {/* Heartfelt Story */}
-                <div>
-                  <label className="block font-medium text-[#281C22] mb-1">
-                    قصتنا والمشاعر التي عشناها
+                    الوصف والمشاعر التي عشناها *
                   </label>
                   <textarea
-                    rows={5}
+                    rows={4}
+                    required
                     placeholder="اكتب تفاصيل ما حدث، وسبب بقاء هذه اللحظة حيّة في وجدانكما..."
-                    value={newMemory.story}
-                    onChange={(e) =>
-                      setNewMemory({ ...newMemory, story: e.target.value })
-                    }
+                    value={newStory}
+                    onChange={(e) => setNewStory(e.target.value)}
                     className="w-full px-3 py-2.5 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665] leading-relaxed"
                   />
                 </div>
 
-                {/* Favorite Checkbox */}
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="checkbox"
-                    id="new-fav-toggle"
-                    checked={newMemory.isFavorite}
-                    onChange={(e) =>
-                      setNewMemory({ ...newMemory, isFavorite: e.target.checked })
-                    }
-                    className="w-4 h-4 rounded text-[#C05665] focus:ring-[#C05665]"
-                  />
-                  <label
-                    htmlFor="new-fav-toggle"
-                    className="font-medium text-[#281C22] flex items-center gap-1 cursor-pointer"
-                  >
-                    <Star className="w-3.5 h-3.5 text-[#C89B53]" />
-                    <span>تمييز كذكرى مفضلة لقلبي</span>
-                  </label>
+                {/* 3. Date & Favorite Toggle */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block font-medium text-[#281C22] mb-1">
+                      تاريخ الذكرى
+                    </label>
+                    <input
+                      type="date"
+                      value={newDate}
+                      onChange={(e) => setNewDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
+                      dir="ltr"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end pb-2">
+                    <input
+                      type="checkbox"
+                      id="new-fav-box"
+                      checked={newIsFavorite}
+                      onChange={(e) => setNewIsFavorite(e.target.checked)}
+                      className="w-4 h-4 rounded text-[#C05665] focus:ring-[#C05665]"
+                    />
+                    <label
+                      htmlFor="new-fav-box"
+                      className="font-medium text-[#281C22] flex items-center gap-1 cursor-pointer"
+                    >
+                      <Star className="w-3.5 h-3.5 text-[#C89B53]" />
+                      <span>تمييز كذكرى مفضلة لقلبي</span>
+                    </label>
+                  </div>
                 </div>
 
                 {/* Submit Button */}
                 <div className="pt-4 border-t border-[#EADBCE]">
                   <button
                     type="submit"
-                    disabled={isCompressing}
+                    disabled={isProcessingMedia}
                     className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#682535] hover:bg-[#521b29] text-white font-medium text-xs shadow-md transition-all active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <PlusCircle className="w-4 h-4" />
@@ -461,10 +454,10 @@ export default function AdminDashboard({
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-xl font-serif font-bold text-[#281C22]">
-                    قائمة محطات الخط الزمني
+                    قائمة الذكريات المسجلة
                   </h3>
                   <p className="text-xs text-[#6B5C64]">
-                    تعديل أو ترتيب أو حذف المحطات المسجلة ({memories.length} محطة)
+                    تعديل أو ترتيب أو حذف الذكريات ({memories.length} ذكرى)
                   </p>
                 </div>
 
@@ -478,68 +471,82 @@ export default function AdminDashboard({
               </div>
 
               <div className="space-y-3">
-                {memories.map((m, idx) => (
-                  <div
-                    key={m.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-white border border-[#EADBCE] hover:border-[#C89B53]/50 transition-all gap-3"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-16 h-12 rounded-xl overflow-hidden bg-black shrink-0 border border-[#EADBCE]">
-                        <img
-                          src={m.image}
-                          alt={m.title}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-[#FAF7F2] text-[#882B3B] border border-[#EADBCE] bidi-text">
-                            #{m.milestone || (idx + 1).toString().padStart(2, '0')}
-                          </span>
-                          <h4 className="font-serif font-bold text-sm text-[#281C22]">
-                            {m.title}
-                          </h4>
-                          {m.isFavorite && (
-                            <Star className="w-3 h-3 text-[#C89B53] fill-[#C89B53]" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 text-[11px] text-[#8B7B83] mt-0.5">
-                          <span className="bidi-text">{m.date}</span>
-                          {m.location && <span>• {m.location}</span>}
-                          {m.tag && (
-                            <span className="text-[#C05665]">• {m.tag}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                {memories.map((m, idx) => {
+                  const mediaCount = Array.isArray(m.media) && m.media.length > 0 ? m.media.length : 1;
+                  const firstMedia = Array.isArray(m.media) && m.media[0] ? m.media[0] : { type: 'image', url: m.image };
+                  const isVid = firstMedia.type === 'video';
 
-                    <div className="flex items-center gap-2 self-end sm:self-center">
-                      <button
-                        onClick={() => setEditingMemory(m)}
-                        className="p-2 rounded-xl text-[#6B5C64] hover:text-[#682535] hover:bg-[#F8E9EB] transition-colors cursor-pointer"
-                        title="تعديل الذكرى"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `هل أنت متأكد من رغبتك في حذف ذكرى "${m.title}"؟`
-                            )
-                          ) {
-                            onDeleteMemory(m.id);
-                            showToast('تم حذف الذكرى');
-                          }
-                        }}
-                        className="p-2 rounded-xl text-[#8B7B83] hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
-                        title="حذف الذكرى"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                  return (
+                    <div
+                      key={m.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl bg-white border border-[#EADBCE] hover:border-[#C89B53]/50 transition-all gap-3"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        {/* Thumbnail */}
+                        <div className="relative w-16 h-14 rounded-xl overflow-hidden bg-black shrink-0 border border-[#EADBCE]">
+                          {isVid ? (
+                            <div className="w-full h-full flex items-center justify-center bg-[#22181C]">
+                              <VideoIcon className="w-5 h-5 text-[#E2C082]" />
+                            </div>
+                          ) : (
+                            <img
+                              src={firstMedia.url || m.image}
+                              alt="معاينة"
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+
+                          {mediaCount > 1 && (
+                            <span className="absolute bottom-0.5 start-0.5 px-1 rounded-xs bg-black/70 text-white text-[9px] font-bold">
+                              {mediaCount}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Description Preview */}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-normal text-xs sm:text-sm text-[#281C22] line-clamp-2 leading-relaxed">
+                            {m.story || m.title || 'ذكرى جميلة'}
+                          </p>
+                          <div className="flex items-center gap-2.5 text-[11px] text-[#8B7B83] mt-1">
+                            {m.date && <span className="bidi-text">{m.date}</span>}
+                            {mediaCount > 1 && (
+                              <span className="text-[#682535]">
+                                • {mediaCount} صور/فيديوهات
+                              </span>
+                            )}
+                            {m.isFavorite && (
+                              <Star className="w-3 h-3 text-[#C89B53] fill-[#C89B53]" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        <button
+                          onClick={() => setEditingMemory(m)}
+                          className="p-2 rounded-xl text-[#6B5C64] hover:text-[#682535] hover:bg-[#F8E9EB] transition-colors cursor-pointer"
+                          title="تعديل الذكرى"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm('هل أنت متأكد من رغبتك في حذف هذه الذكرى؟')) {
+                              onDeleteMemory(m.id);
+                              showToast('تم حذف الذكرى');
+                            }
+                          }}
+                          className="p-2 rounded-xl text-[#8B7B83] hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                          title="حذف الذكرى"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -717,7 +724,7 @@ export default function AdminDashboard({
                       احصل على بطاقة أو شريحة NFC
                     </h4>
                     <p className="leading-relaxed">
-                      أي شريحة قياسية من نوع <span className="font-bold text-[#682535]">NTAG213 أو NTAG215 أو NTAG216</span> تعمل بكفاءة. سعرها رمزي ومتوفرة على أمازون ومواقع البيع، وتدعم كل هواتف الآيفون والأندرويد الحديثة.
+                      أي شريحة قياسية من نوع <span className="font-bold text-[#682535]">NTAG213 أو NTAG215 أو NTAG216</span> تعمل بكفاءة. متوفرة على أمازون ومواقع البيع، وتدعم هواتف الآيفون والأندرويد الحديثة.
                     </p>
                   </div>
                 </div>
@@ -856,7 +863,7 @@ export default function AdminDashboard({
                     إعادة ضبط الذكريات الافتراضية
                   </h4>
                   <p className="text-[#8B7B83] text-[11px] mt-0.5">
-                    يعيد تحميل المحطات الست الرومانسية الافتراضية بالصور والنصوص الجميلة.
+                    يعيد تحميل المحطات الرومانسية الافتراضية بالصور والنصوص الجميلة.
                   </p>
                 </div>
                 <button

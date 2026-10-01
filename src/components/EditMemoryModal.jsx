@@ -1,54 +1,118 @@
 import React, { useState } from 'react';
-import { X, Upload, Image, Star } from 'lucide-react';
-import { compressImageFile } from '../utils/imageCompressor';
+import { X, Upload, Plus, Trash2, Video as VideoIcon, Image as ImageIcon, Star } from 'lucide-react';
+import { processMediaFile } from '../utils/imageCompressor';
 
 export default function EditMemoryModal({ memory, isOpen, onClose, onSave }) {
-  const [formData, setFormData] = useState({
-    title: memory?.title || '',
-    date: memory?.date || '',
-    tag: memory?.tag || '',
-    location: memory?.location || '',
-    milestone: memory?.milestone || '',
-    story: memory?.story || '',
-    image: memory?.image || '',
-    isFavorite: !!memory?.isFavorite,
-  });
+  // Normalize initial media items from memory
+  const initialMedia = React.useMemo(() => {
+    if (!memory) return [];
+    if (Array.isArray(memory.media) && memory.media.length > 0) {
+      return [...memory.media];
+    }
+    if (memory.image) {
+      return [{ type: 'image', url: memory.image }];
+    }
+    return [];
+  }, [memory]);
 
-  const [isCompressing, setIsCompressing] = useState(false);
+  const [mediaList, setMediaList] = useState(initialMedia);
+  const [urlInput, setUrlInput] = useState('');
+  const [urlType, setUrlType] = useState('image'); // 'image' | 'video'
+  const [story, setStory] = useState(memory?.story || '');
+  const [date, setDate] = useState(memory?.date || '');
+  const [isFavorite, setIsFavorite] = useState(!!memory?.isFavorite);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [rawFile, setRawFile] = useState(null);
+
+  // Re-sync if memory changes
+  React.useEffect(() => {
+    if (memory) {
+      const items = Array.isArray(memory.media) && memory.media.length > 0
+        ? [...memory.media]
+        : memory.image
+        ? [{ type: 'image', url: memory.image }]
+        : [];
+      setMediaList(items);
+      setStory(memory.story || '');
+      setDate(memory.date || '');
+      setIsFavorite(!!memory.isFavorite);
+      setErrorMsg('');
+    }
+  }, [memory]);
 
   if (!isOpen || !memory) return null;
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Handle uploading multiple files (images and/or videos)
+  const handleMultipleFiles = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    setIsProcessing(true);
+    setErrorMsg('');
 
     try {
-      setRawFile(file);
-      setIsCompressing(true);
-      setErrorMsg('');
-      const compressedDataUrl = await compressImageFile(file);
-      setFormData((prev) => ({ ...prev, image: compressedDataUrl }));
-    } catch (err) {
-      setErrorMsg(err.message || 'حدث خطأ أثناء معالجة الصورة.');
+      const newItems = [];
+      for (const file of files) {
+        try {
+          const item = await processMediaFile(file);
+          newItems.push(item);
+        } catch (itemErr) {
+          console.warn('Error processing file:', file.name, itemErr);
+          setErrorMsg(itemErr.message || 'حدث خطأ في أحد الملفات.');
+        }
+      }
+      if (newItems.length > 0) {
+        setMediaList((prev) => [...prev, ...newItems]);
+      }
     } finally {
-      setIsCompressing(false);
+      setIsProcessing(false);
+      e.target.value = '';
     }
+  };
+
+  // Add media via URL
+  const handleAddUrl = (e) => {
+    e.preventDefault();
+    if (!urlInput.trim()) return;
+
+    const isVid =
+      urlType === 'video' ||
+      urlInput.match(/\.(mp4|webm|mov|ogg)$/i) ||
+      urlInput.includes('youtube.com') ||
+      urlInput.includes('vimeo.com');
+
+    setMediaList((prev) => [
+      ...prev,
+      { type: isVid ? 'video' : 'image', url: urlInput.trim() },
+    ]);
+    setUrlInput('');
+  };
+
+  const handleRemoveMedia = (idxToRemove) => {
+    setMediaList((prev) => prev.filter((_, idx) => idx !== idxToRemove));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.title.trim()) {
-      setErrorMsg('يرجى إدخال عنوان لهذه الذكرى.');
+    if (mediaList.length === 0) {
+      setErrorMsg('يرجى إضافة صورة أو فيديو واحد على الأقل للذكرى.');
       return;
     }
-    if (!formData.image.trim()) {
-      setErrorMsg('يرجى رفع صورة أو إدخال رابط صورة صالح.');
+    if (!story.trim()) {
+      setErrorMsg('يرجى كتابة وصف أو رسالة للذكرى.');
       return;
     }
 
-    onSave(memory.id, formData, rawFile);
+    const updatedMemory = {
+      ...memory,
+      media: mediaList,
+      image: mediaList[0]?.url || '',
+      story: story.trim(),
+      date,
+      isFavorite,
+    };
+
+    onSave(memory.id, updatedMemory);
     onClose();
   };
 
@@ -56,14 +120,13 @@ export default function EditMemoryModal({ memory, isOpen, onClose, onSave }) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="تعديل الذكرى"
       dir="rtl"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-xs overflow-y-auto"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-xl bg-[#FAF7F2] rounded-3xl p-5 sm:p-7 shadow-2xl border border-[#C89B53]/30 my-6 text-right"
+        className="relative w-full max-w-xl bg-[#FAF7F2] rounded-3xl p-4 sm:p-7 shadow-2xl border border-[#C89B53]/30 my-6 text-right max-h-[90vh] overflow-y-auto"
       >
         <button
           onClick={onClose}
@@ -73,11 +136,11 @@ export default function EditMemoryModal({ memory, isOpen, onClose, onSave }) {
           <X className="w-5 h-5" />
         </button>
 
-        <h3 className="text-2xl font-serif font-bold text-[#281C22] mb-1">
+        <h3 className="text-xl sm:text-2xl font-serif font-bold text-[#281C22] mb-1">
           تعديل تفاصيل الذكرى
         </h3>
-        <p className="text-xs text-[#6B5C64] mb-5">
-          حدّث الصورة أو الكلمات أو محطة التاريخ
+        <p className="text-xs text-[#6B5C64] mb-4">
+          قم بتحديث وسائط الذكرى (صور وفيديوهات) وكتابة الوصف والمشاعر.
         </p>
 
         {errorMsg && (
@@ -87,147 +150,142 @@ export default function EditMemoryModal({ memory, isOpen, onClose, onSave }) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          {/* Photo Preview & Upload */}
+          {/* Section 1: Media Items List & Upload */}
           <div>
             <label className="block font-medium text-[#281C22] mb-1.5">
-              صورة المحطة
+              الوسائط (صور وفيديوهات) * ({mediaList.length})
             </label>
-            <div className="flex gap-4 items-start">
-              {formData.image ? (
-                <div className="relative w-28 h-20 rounded-2xl overflow-hidden bg-black shrink-0 border border-[#EADBCE]">
-                  <img
-                    src={formData.image}
-                    alt="معاينة"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="w-28 h-20 rounded-2xl bg-[#F5EFEB] flex items-center justify-center shrink-0 border border-dashed border-[#C89B53]">
-                  <Image className="w-6 h-6 text-[#C89B53]" />
-                </div>
-              )}
 
-              <div className="flex-1 space-y-2">
-                <label className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#682535] hover:bg-[#F8E9EB] cursor-pointer transition-colors font-medium">
-                  <Upload className="w-3.5 h-3.5 text-[#C05665]" />
-                  <span>{isCompressing ? 'جاري ضغط الصورة...' : 'رفع صورة جديدة من جهازك'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    disabled={isCompressing}
-                  />
-                </label>
-                <input
-                  type="url"
-                  placeholder="أو الصق رابط صورة مباشر هنا..."
-                  value={formData.image}
-                  onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
-                  dir="ltr"
-                />
+            {/* Media Previews Grid */}
+            {mediaList.length > 0 ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mb-3">
+                {mediaList.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="relative aspect-square rounded-2xl overflow-hidden bg-black border border-[#EADBCE] group"
+                  >
+                    {item.type === 'video' ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-[#22181C] text-white">
+                        <VideoIcon className="w-6 h-6 text-[#E2C082] mb-1" />
+                        <span className="text-[9px] text-[#EADBCE]">فيديو</span>
+                      </div>
+                    ) : (
+                      <img
+                        src={item.url}
+                        alt="وسيط"
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+
+                    {/* Remove button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMedia(idx)}
+                      className="absolute top-1 start-1 p-1 rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors cursor-pointer shadow-xs"
+                      title="حذف هذا الوسيط"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+
+                    <div className="absolute bottom-1 end-1 px-1.5 py-0.5 rounded-sm bg-black/60 text-white text-[9px] bidi-text">
+                      #{idx + 1}
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-[#F5EFEB] border border-dashed border-[#C89B53] text-center text-[#8B7B83] mb-3">
+                لا توجد صور أو فيديوهات حالياً. اضف وسائط بالأسفل.
+              </div>
+            )}
 
-          {/* Title & Milestone */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <label className="block font-medium text-[#281C22] mb-1">
-                عنوان الذكرى *
+            {/* File Upload Button (Supports multiple files) */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-white border border-[#EADBCE] text-[#682535] hover:bg-[#F8E9EB] cursor-pointer transition-colors font-medium">
+                <Upload className="w-4 h-4 text-[#C05665]" />
+                <span>
+                  {isProcessing
+                    ? 'جاري معالجة الملفات...'
+                    : 'رفع صور أو فيديوهات من جهازك'}
+                </span>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,video/*"
+                  onChange={handleMultipleFiles}
+                  disabled={isProcessing}
+                  className="hidden"
+                />
               </label>
-              <input
-                type="text"
-                required
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
-              />
             </div>
-            <div>
-              <label className="block font-medium text-[#281C22] mb-1">
-                رقم المحطة
-              </label>
+
+            {/* Add URL Row */}
+            <div className="mt-2.5 flex items-center gap-2">
               <input
-                type="text"
-                placeholder="01"
-                value={formData.milestone}
-                onChange={(e) => setFormData({ ...formData, milestone: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
+                type="url"
+                placeholder="أو الصق رابط صورة أو فيديو مباشر هنا..."
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
                 dir="ltr"
               />
+              <button
+                type="button"
+                onClick={handleAddUrl}
+                className="px-3.5 py-2 rounded-xl bg-[#FAF7F2] border border-[#C89B53] text-[#682535] hover:bg-[#F8E9EB] font-medium flex items-center gap-1 cursor-pointer shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>إضافة</span>
+              </button>
             </div>
           </div>
 
-          {/* Date & Tag */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Section 2: Story / Description (Pure memory storytelling) */}
+          <div>
+            <label className="block font-medium text-[#281C22] mb-1">
+              الوصف والمشاعر النابعة من القلب *
+            </label>
+            <textarea
+              rows={4}
+              required
+              placeholder="اكتب تفاصيل هذه اللحظة، وماذا تعني لك..."
+              value={story}
+              onChange={(e) => setStory(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665] leading-relaxed"
+            />
+          </div>
+
+          {/* Section 3: Date & Favorite */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             <div>
               <label className="block font-medium text-[#281C22] mb-1">
                 تاريخ الذكرى
               </label>
               <input
                 type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
                 dir="ltr"
               />
             </div>
-            <div>
-              <label className="block font-medium text-[#281C22] mb-1">
-                التصنيف / الطابع
-              </label>
+
+            <div className="flex items-center gap-2 self-end pb-2">
               <input
-                type="text"
-                placeholder="مثال: أول موعد، رحلتنا، ذكرى زواجنا"
-                value={formData.tag}
-                onChange={(e) => setFormData({ ...formData, tag: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
+                type="checkbox"
+                id="edit-fav-box"
+                checked={isFavorite}
+                onChange={(e) => setIsFavorite(e.target.checked)}
+                className="w-4 h-4 rounded text-[#C05665] focus:ring-[#C05665]"
               />
+              <label
+                htmlFor="edit-fav-box"
+                className="font-medium text-[#281C22] flex items-center gap-1 cursor-pointer"
+              >
+                <Star className="w-3.5 h-3.5 text-[#C89B53]" />
+                <span>تمييز كذكرى مفضلة</span>
+              </label>
             </div>
-          </div>
-
-          {/* Location */}
-          <div>
-            <label className="block font-medium text-[#281C22] mb-1">
-              المكان
-            </label>
-            <input
-              type="text"
-              placeholder="مثال: شاطئ دهب، أو بيتنا الدافئ"
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              className="w-full px-3 py-2 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665]"
-            />
-          </div>
-
-          {/* Story */}
-          <div>
-            <label className="block font-medium text-[#281C22] mb-1">
-              قصتنا / رسالة من القلب
-            </label>
-            <textarea
-              rows={4}
-              value={formData.story}
-              onChange={(e) => setFormData({ ...formData, story: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-xl bg-white border border-[#EADBCE] text-[#281C22] focus:outline-hidden focus:border-[#C05665] leading-relaxed"
-            />
-          </div>
-
-          {/* Favorite Toggle */}
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              type="checkbox"
-              id="edit-fav-toggle"
-              checked={formData.isFavorite}
-              onChange={(e) => setFormData({ ...formData, isFavorite: e.target.checked })}
-              className="w-4 h-4 rounded text-[#C05665] focus:ring-[#C05665]"
-            />
-            <label htmlFor="edit-fav-toggle" className="font-medium text-[#281C22] flex items-center gap-1 cursor-pointer">
-              <Star className="w-3.5 h-3.5 text-[#C89B53]" />
-              <span>تمييز كذكرى مفضلة لقلبي</span>
-            </label>
           </div>
 
           {/* Actions */}
@@ -241,7 +299,7 @@ export default function EditMemoryModal({ memory, isOpen, onClose, onSave }) {
             </button>
             <button
               type="submit"
-              disabled={isCompressing}
+              disabled={isProcessing}
               className="px-5 py-2 rounded-xl bg-[#682535] text-white hover:bg-[#521b29] transition-colors font-medium shadow-xs cursor-pointer"
             >
               حفظ التعديلات

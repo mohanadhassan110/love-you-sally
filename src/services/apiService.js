@@ -115,13 +115,14 @@ class ApiService {
       } else {
         headers['Content-Type'] = 'application/json';
         body = JSON.stringify({
-          title: memoryData.title,
+          title: memoryData.title || memoryData.story?.slice(0, 30) || 'ذكرى جميلة',
           date: memoryData.date,
           tag: memoryData.tag,
           location: memoryData.location,
           milestone: memoryData.milestone,
           story: memoryData.story,
           image: memoryData.image,
+          media: memoryData.media || [],
           is_favorite: memoryData.isFavorite,
         });
       }
@@ -163,13 +164,14 @@ class ApiService {
       } else {
         headers['Content-Type'] = 'application/json';
         body = JSON.stringify({
-          title: memoryData.title,
+          title: memoryData.title || memoryData.story?.slice(0, 30) || 'ذكرى جميلة',
           date: memoryData.date,
           tag: memoryData.tag,
           location: memoryData.location,
           milestone: memoryData.milestone,
           story: memoryData.story,
           image: memoryData.image,
+          media: memoryData.media || [],
           is_favorite: memoryData.isFavorite,
         });
       }
@@ -274,9 +276,26 @@ class ApiService {
 }
 
 function normalizeMemory(m) {
+  let media = m.media;
+  if (typeof media === 'string') {
+    try {
+      media = JSON.parse(media);
+    } catch {
+      media = null;
+    }
+  }
+  if (!Array.isArray(media) || media.length === 0) {
+    if (m.image) {
+      media = [{ type: 'image', url: m.image }];
+    } else {
+      media = [];
+    }
+  }
+
   return {
     ...m,
     id: m.id,
+    media,
     isFavorite: m.is_favorite !== undefined ? !!m.is_favorite : !!m.isFavorite,
     likes: Number(m.likes) || 0,
   };
