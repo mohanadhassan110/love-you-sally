@@ -1,0 +1,9 @@
+backend/
+.agent/
+.agents/
+.claude/
+.codex/
+.cursor/
+.gemini/
+.opencode/
+run-dev.bat
