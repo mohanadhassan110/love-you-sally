@@ -47,7 +47,7 @@ export default function App() {
           if (liveCouple) setCouple((prev) => ({ ...prev, ...liveCouple }));
         },
         (liveMemories) => {
-          if (Array.isArray(liveMemories) && liveMemories.length > 0) {
+          if (Array.isArray(liveMemories)) {
             setMemories(liveMemories);
           }
         }
@@ -69,7 +69,7 @@ export default function App() {
   const handleLikeMemory = useCallback(async (id) => {
     // Optimistic UI update
     setMemories((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, likes: (m.likes || 0) + 1 } : m))
+      prev.map((m) => (String(m.id) === String(id) ? { ...m, likes: (m.likes || 0) + 1 } : m))
     );
     await apiService.toggleLike(id);
   }, []);
@@ -84,14 +84,19 @@ export default function App() {
   const handleUpdateMemory = useCallback(async (id, updatedFields, rawFile = null) => {
     const updated = await apiService.updateMemory(id, updatedFields, rawFile);
     setMemories((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updated } : item))
+      prev.map((item) => (String(item.id) === String(id) ? { ...item, ...updated } : item))
     );
   }, []);
 
   // Delete memory
   const handleDeleteMemory = useCallback(async (id) => {
-    await apiService.deleteMemory(id);
-    setMemories((prev) => prev.filter((item) => item.id !== id));
+    // Immediate optimistic update
+    setMemories((prev) => prev.filter((item) => String(item.id) !== String(id)));
+    try {
+      await apiService.deleteMemory(id);
+    } catch (err) {
+      console.error('Error deleting memory:', err);
+    }
   }, []);
 
   // Save couple profile settings

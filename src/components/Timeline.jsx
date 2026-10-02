@@ -133,10 +133,12 @@ export default function Timeline({
           <div className="text-center py-12 px-4 bg-white/70 rounded-3xl border border-[#EADBCE] max-w-md mx-auto">
             <Sparkles className="w-8 h-8 text-[#C89B53] mx-auto mb-3" />
             <h3 className="text-lg font-serif font-bold text-[#281C22] mb-1">
-              لم نعثر على ذكريات مطابقة
+              {memories.length === 0 ? 'لا توجد ذكريات حالياً' : 'لم نعثر على ذكريات مطابقة'}
             </h3>
             <p className="text-xs text-[#8B7B83] mb-4">
-              جرّب تغيير كلمات البحث أو إلغاء تصفية المفضلة.
+              {memories.length === 0
+                ? 'يمكنك إضافة ذكريات جديدة من لوحة التحكم لتظهر هنا.'
+                : 'جرّب تغيير كلمات البحث أو إلغاء تصفية المفضلة.'}
             </p>
             {(searchQuery || filterFavorite) && (
               <button

@@ -10,7 +10,14 @@ export const cloudService = {
   // 1. Get couple profile from cloud
   getCoupleData: async () => {
     try {
-      const res = await fetch(`${CLOUD_BASE}/couple`, { signal: AbortSignal.timeout(4000) });
+      const res = await fetch(`${CLOUD_BASE}/couple?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+        signal: AbortSignal.timeout(4000),
+      });
       if (res.ok) {
         const text = await res.text();
         if (text && text.trim().startsWith('{')) {
@@ -32,9 +39,12 @@ export const cloudService = {
   // 2. Save couple profile to cloud
   saveCoupleData: async (data) => {
     try {
-      await fetch(`${CLOUD_BASE}/couple`, {
+      await fetch(`${CLOUD_BASE}/couple?_t=${Date.now()}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
         body: JSON.stringify(data),
       });
       storageService.saveCoupleData(data);
@@ -49,20 +59,30 @@ export const cloudService = {
   // 3. Get all memories from cloud
   getMemories: async () => {
     try {
-      const res = await fetch(`${CLOUD_BASE}/memories`, { signal: AbortSignal.timeout(4000) });
+      const res = await fetch(`${CLOUD_BASE}/memories?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+        signal: AbortSignal.timeout(4000),
+      });
       if (res.ok) {
         const text = await res.text();
         if (text && text.trim().startsWith('[')) {
           const parsed = JSON.parse(text);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            storageService.saveMemories(parsed);
-            return parsed;
+          if (Array.isArray(parsed)) {
+            const deleted = storageService.getDeletedIds();
+            const clean = parsed.filter((m) => !deleted.has(String(m.id)));
+            storageService.saveMemories(clean);
+            return clean;
           }
         }
       } else if (res.status === 404) {
-        // First run: seed cloud with initial memories
-        await cloudService.saveMemories(INITIAL_MEMORIES);
-        return INITIAL_MEMORIES;
+        // First run: sync current local memories (or initial) to cloud
+        const current = storageService.getMemories();
+        await cloudService.saveMemories(current);
+        return current;
       }
     } catch (err) {
       console.warn('Cloud sync memories error, using local fallback:', err);
@@ -72,24 +92,36 @@ export const cloudService = {
 
   // 4. Save entire memories array to cloud
   saveMemories: async (memories) => {
+    // 1. Immediately persist locally
+    const deleted = storageService.getDeletedIds();
+    const cleanMemories = Array.isArray(memories)
+      ? memories.filter((m) => !deleted.has(String(m.id)))
+      : [];
+    storageService.saveMemories(cleanMemories);
+
+    // 2. Persist to cloud in parallel
     try {
-      await fetch(`${CLOUD_BASE}/memories`, {
+      const res = await fetch(`${CLOUD_BASE}/memories?_t=${Date.now()}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(memories),
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        body: JSON.stringify(cleanMemories),
       });
-      storageService.saveMemories(memories);
-      return memories;
+      if (!res.ok) {
+        console.warn('Cloud save memories status:', res.status);
+      }
+      return cleanMemories;
     } catch (err) {
       console.error('Cloud save memories error:', err);
-      storageService.saveMemories(memories);
-      return memories;
+      return cleanMemories;
     }
   },
 
   // 5. Add new memory to cloud
   addMemory: async (memory) => {
-    const memories = await cloudService.getMemories();
+    const memories = storageService.getMemories();
     const newMemory = {
       ...memory,
       id: memory.id || `mem-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -104,10 +136,10 @@ export const cloudService = {
 
   // 6. Update existing memory in cloud
   updateMemory: async (id, updatedFields) => {
-    const memories = await cloudService.getMemories();
+    const memories = storageService.getMemories();
     let updatedItem = null;
     const updated = memories.map((item) => {
-      if (item.id === id) {
+      if (String(item.id) === String(id)) {
         updatedItem = { ...item, ...updatedFields, updatedAt: new Date().toISOString() };
         return updatedItem;
       }
@@ -119,18 +151,19 @@ export const cloudService = {
 
   // 7. Delete memory from cloud
   deleteMemory: async (id) => {
-    const memories = await cloudService.getMemories();
-    const updated = memories.filter((item) => item.id !== id);
+    storageService.addDeletedId(id);
+    const memories = storageService.getMemories();
+    const updated = memories.filter((item) => String(item.id) !== String(id));
     await cloudService.saveMemories(updated);
     return true;
   },
 
   // 8. Toggle like in cloud
   toggleLike: async (id) => {
-    const memories = await cloudService.getMemories();
+    const memories = storageService.getMemories();
     let newLikes = 0;
     const updated = memories.map((item) => {
-      if (item.id === id) {
+      if (String(item.id) === String(id)) {
         newLikes = (item.likes || 0) + 1;
         return { ...item, likes: newLikes };
       }

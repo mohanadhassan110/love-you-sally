@@ -69,12 +69,15 @@ class ApiService {
   }
 
   async getMemories(params = {}) {
+    const deleted = storageService.getDeletedIds();
+
     // 1. Firebase if configured
     if (firebaseService.isConfigured()) {
       try {
         const fireMemories = await firebaseService.getMemories();
-        if (Array.isArray(fireMemories) && fireMemories.length > 0) {
-          const formatted = fireMemories.map(normalizeMemory);
+        if (Array.isArray(fireMemories)) {
+          const clean = fireMemories.filter((m) => !deleted.has(String(m.id)));
+          const formatted = clean.map(normalizeMemory);
           storageService.saveMemories(formatted);
           return formatted;
         }
@@ -83,11 +86,31 @@ class ApiService {
       }
     }
 
-    // 2. Automated 24/7 Cloud Sync
+    // 2. Try Laravel backend if running locally
+    try {
+      const res = await fetch(`${API_BASE}/memories?_t=${Date.now()}`, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(1000),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          const clean = json.data.filter((m) => !deleted.has(String(m.id)));
+          const formatted = clean.map(normalizeMemory);
+          storageService.saveMemories(formatted);
+          return formatted;
+        }
+      }
+    } catch {
+      // Backend not running locally, proceed
+    }
+
+    // 3. Automated 24/7 Cloud Sync
     try {
       const cloudMemories = await cloudService.getMemories();
-      if (Array.isArray(cloudMemories) && cloudMemories.length > 0) {
-        const formatted = cloudMemories.map(normalizeMemory);
+      if (Array.isArray(cloudMemories)) {
+        const clean = cloudMemories.filter((m) => !deleted.has(String(m.id)));
+        const formatted = clean.map(normalizeMemory);
         storageService.saveMemories(formatted);
         return formatted;
       }
@@ -95,7 +118,7 @@ class ApiService {
       console.warn('Cloud sync error, using local fallback:', err);
     }
 
-    // 3. Fallback to localStorage
+    // 4. Fallback to localStorage
     return storageService.getMemories();
   }
 
@@ -112,16 +135,17 @@ class ApiService {
       likes: memoryData.likes || 0,
     };
 
-    // 1. Save to Firebase if configured
-    if (firebaseService.isConfigured()) {
-      await firebaseService.addMemory(cleanMemory);
-    }
+    // 1. Save locally immediately
+    storageService.addMemory(cleanMemory);
 
     // 2. Save to 24/7 Cloud Sync
     await cloudService.addMemory(cleanMemory);
 
-    // 3. Save locally
-    storageService.addMemory(cleanMemory);
+    // 3. Save to Firebase if configured
+    if (firebaseService.isConfigured()) {
+      await firebaseService.addMemory(cleanMemory);
+    }
+
     return cleanMemory;
   }
 
@@ -134,34 +158,52 @@ class ApiService {
       title: memoryData.title || memoryData.story?.slice(0, 30) || 'ذكرى جميلة',
     };
 
-    // 1. Firebase if configured
-    if (firebaseService.isConfigured()) {
-      await firebaseService.updateMemory(id, cleanMemory);
-    }
+    // 1. Save locally immediately
+    const updated = storageService.updateMemory(id, cleanMemory);
 
     // 2. Save to 24/7 Cloud Sync
     await cloudService.updateMemory(id, cleanMemory);
 
-    // 3. Save locally
-    return storageService.updateMemory(id, cleanMemory);
+    // 3. Save to Firebase if configured
+    if (firebaseService.isConfigured()) {
+      await firebaseService.updateMemory(id, cleanMemory);
+    }
+
+    return updated;
   }
 
   async deleteMemory(id) {
-    if (firebaseService.isConfigured()) {
-      await firebaseService.deleteMemory(id);
-    }
-    await cloudService.deleteMemory(id);
+    // 1. Mark as deleted and delete locally immediately
     storageService.deleteMemory(id);
+
+    // 2. Sync deletion to cloud, Firebase, and Laravel
+    const promises = [cloudService.deleteMemory(id)];
+    if (firebaseService.isConfigured()) {
+      promises.push(firebaseService.deleteMemory(id));
+    }
+    promises.push(
+      fetch(`${API_BASE}/memories/${id}`, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(1000),
+      }).catch(() => {})
+    );
+
+    await Promise.allSettled(promises);
     return true;
   }
 
   async toggleLike(id) {
+    const newLikes = storageService.toggleLike(id);
+    const item = newLikes.find((m) => String(m.id) === String(id));
+    const likesCount = item ? item.likes : 0;
+
+    const promises = [cloudService.toggleLike(id)];
     if (firebaseService.isConfigured()) {
-      await firebaseService.toggleLike(id);
+      promises.push(firebaseService.toggleLike(id));
     }
-    const newLikes = await cloudService.toggleLike(id);
-    storageService.updateMemory(id, { likes: newLikes });
-    return newLikes;
+    Promise.allSettled(promises).catch(() => {});
+
+    return likesCount;
   }
 
   async exportBackup() {

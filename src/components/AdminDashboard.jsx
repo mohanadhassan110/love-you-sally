@@ -618,9 +618,9 @@ export default function AdminDashboard({
                           <Edit3 className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (window.confirm('هل أنت متأكد من رغبتك في حذف هذه الذكرى؟')) {
-                              onDeleteMemory(m.id);
+                              await onDeleteMemory(m.id);
                               showToast('تم حذف الذكرى');
                             }
                           }}
