@@ -1,21 +1,116 @@
 import { put } from '@vercel/blob';
 
-const BLOB_FILE_NAME = 'romantic_timeline_v1.json';
+const BLOB_FILE_NAME = 'nfc_gift_timeline_v2.json';
 const BLOB_PUBLIC_URL = 'https://pgyht7sakchwqtiq.public.blob.vercel-storage.com/' + BLOB_FILE_NAME;
 
-// Fallback initial data in case blob is completely fresh
+// Isolated initial couple profile for NFC Gift (أحمد & سارة)
 const DEFAULT_COUPLE = {
-  partnerOne: 'Mohamed',
-  partnerTwo: 'Hala',
-  relationshipStartDate: '2026-02-14T23:30',
-  quote: 'بحبك وهفضل احبك لحد م اموت ',
-  quoteAuthor: 'حبيبك مودي',
-  pin: '1422026',
+  partnerOne: 'أحمد',
+  partnerTwo: 'سارة',
+  relationshipStartDate: '2023-04-15T18:30:00',
+  quote: '«في كل العالم، ليس هناك قلبٌ لي كقلبكِ.. وفي كل العالم، ليس هناك حبٌ لكِ كحبي.»',
+  quoteAuthor: 'مايا أنجيلو',
+  pin: '1314',
   customAudioUrl: '',
-  loveLetterTitle: 'ل لولي حبيبتي',
-  loveLetterContent: 'بحبك اوي يعيوني...',
-  loveLetterSignoff: 'بحبك اوي يعيوني',
 };
+
+// Initial starter memories for this project
+const DEFAULT_MEMORIES = [
+  {
+    id: 'mem-1',
+    date: '2023-04-15',
+    story: 'كان المطر يهطل بغزارة حين ركضنا معاً تحت مظلة ذلك المقهى الدافئ، ملابسنا مبللة وأيدينا باردة. طلبتِ الشوكولاتة الساخنة بالقرفة، وانسكبت قهوتي ونحن نضحك على مظلتكِ المكسورة. مرت ثلاث ساعات وكأنها ثلاث دقائق معدودات، ومشيت معكِ تحت أضواء الشارع وأنا أعلم في قلبي أن حياتي تغيرت للأبد منذ تلك اللحظة.',
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=80',
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=1200&q=80',
+      },
+    ],
+    likes: 24,
+    isFavorite: true,
+  },
+  {
+    id: 'mem-2',
+    date: '2023-07-22',
+    story: 'حزمنا حقائبنا دون خطط مسبقة، وجلسنا في هدوء الليل أمام البحر حين بدت النجوم كأنها مرسومة فوق رؤوسنا. لُففنا بسترة دافئة نستمع لصوت الأمواج الهادئة، وبدأنا نحكي عن كل الأحلام الصامتة التي لم نجرؤ يوماً على البوح بها لأحد.',
+    media: [
+      {
+        type: 'video',
+        url: 'https://assets.mixkit.co/videos/preview/mixkit-waves-coming-to-the-beach-5016-large.mp4',
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=80',
+      },
+    ],
+    likes: 19,
+    isFavorite: false,
+  },
+  {
+    id: 'mem-3',
+    date: '2023-11-04',
+    story: 'كان من المفترض أن نطلب طعاماً جاهزاً، لكنكِ أصررتِ فجأة أن نتعلم صنع عجينة المعكرونة الإيطالية بأنفسنا. تحولت الطاولة إلى كومة من الدقيق الأبيض، والموسيقى الهادئة تعلو في الخلفية، بينما آثار العجين تزين طرف أنفكِ وأنتِ تضحكين بقلبك. كانت من أجمل الليالي التي شعرت فيها بقمة السعادة.',
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1528712306091-ed0763094c98?auto=format&fit=crop&w=1200&q=80',
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=1200&q=80',
+      },
+    ],
+    likes: 31,
+    isFavorite: true,
+  },
+  {
+    id: 'mem-4',
+    date: '2023-12-24',
+    story: 'كانت نسمات الهواء الباردة تداعب شعركِ وأضواء الزينة الصفراء تنعكس في عينيكِ بريقاً يخطف الأنفاس. تقاسمنا كوب قهوة ساخناً، وقفازاً واحداً لأنني كالعادة نسيت قفازاتي في المنزل. عندما وضعتِ يديكِ الباردتين في جيب معطفي وابتسمتِ، شعرت وكأن برودة العالم كله قد تلاشت فجأة.',
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80',
+      },
+    ],
+    likes: 15,
+    isFavorite: false,
+  },
+  {
+    id: 'mem-5',
+    date: '2024-04-15',
+    story: 'سنة كاملة مرّت مع ضحكتكِ، صوتكِ الصباحي، حنانكِ الاستثنائي، وتفاصيلكِ التي لا تشبه أحداً. قدمتُ لكِ الصندوق الخشبي الصغير الذي احتفظتُ فيه بكل تذاكر السفر والرسائل الصغيرة التي كتبناها سوياً. حين لمعت عيناكِ بالدموع فرحاً، قطعتُ عهداً بيني وبين قلبي أن أجعل كل أيامكِ القادمة مليئة بهذا الدفء.',
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?auto=format&fit=crop&w=1200&q=80',
+      },
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=1200&q=80',
+      },
+    ],
+    likes: 42,
+    isFavorite: true,
+  },
+  {
+    id: 'mem-6',
+    date: '2024-08-19',
+    story: 'توقفت حركة القارب في تلك اللحظة الساحرة التي تلونت فيها السماء بألوان المشمش والوردي والذهبي. كان نسيم البحر يحمل رائحة الصيف وعبق الراحة. أسندتِ رأسكِ على كتفي وأنتِ تراقبين انعكاس الغروب على سطح الماء. تلك اللحظة الهادئة ونحن ممسكان بأيدي بعضنا محفورة في ذاكرتي إلى الأبد.',
+    media: [
+      {
+        type: 'image',
+        url: 'https://images.unsplash.com/photo-1533105079780-92b9be482077?auto=format&fit=crop&w=1200&q=80',
+      },
+    ],
+    likes: 27,
+    isFavorite: true,
+  },
+];
 
 async function getRequestBody(req) {
   if (req.body && typeof req.body === 'object') return req.body;
@@ -53,7 +148,7 @@ async function loadData() {
       if (json && (json.memories || json.settings || json.couple)) {
         return {
           settings: json.settings || json.couple || DEFAULT_COUPLE,
-          memories: Array.isArray(json.memories) ? json.memories : [],
+          memories: Array.isArray(json.memories) && json.memories.length > 0 ? json.memories : DEFAULT_MEMORIES,
         };
       }
     }
@@ -61,24 +156,13 @@ async function loadData() {
     console.warn('Error loading from Vercel Blob:', err.message);
   }
 
-  // Backup store attempt
-  try {
-    const res = await fetch(`https://kvdb.io/W7QiGNMvf1TkkNSAB7pZGM/memories?_t=${Date.now()}`, {
-      cache: 'no-store',
-    });
-    if (res.ok) {
-      const parsed = await res.json();
-      if (Array.isArray(parsed)) {
-        return { settings: DEFAULT_COUPLE, memories: parsed };
-      }
-    }
-  } catch {}
-
-  return { settings: DEFAULT_COUPLE, memories: [] };
+  // First time initialization for this project: seed into blob
+  const initialData = { settings: DEFAULT_COUPLE, memories: DEFAULT_MEMORIES };
+  saveData(initialData).catch(() => {});
+  return initialData;
 }
 
 async function saveData(data) {
-  // 1. Save to Vercel Blob with allowOverwrite
   try {
     await put(BLOB_FILE_NAME, JSON.stringify(data, null, 2), {
       access: 'public',
@@ -88,16 +172,6 @@ async function saveData(data) {
   } catch (err) {
     console.error('Error saving to Vercel Blob:', err);
   }
-
-  // 2. Backup to KV in background
-  try {
-    fetch('https://kvdb.io/W7QiGNMvf1TkkNSAB7pZGM/memories', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data.memories || []),
-    }).catch(() => {});
-  } catch {}
-
   return data;
 }
 
@@ -124,8 +198,8 @@ function normalizeMemoryItem(m, index = 0) {
     likes: Number(m.likes) || 0,
     isFavorite,
     featured: isFavorite,
-    category: m.category || m.tag || '',
-    tag: m.tag || m.category || '',
+    category: m.category || m.tag || 'ذكرياتنا',
+    tag: m.tag || m.category || 'ذكرياتنا',
     location: m.location || '',
     milestoneNumber: m.milestoneNumber || (index + 1),
     createdAt: m.createdAt || Date.now(),
@@ -133,24 +207,21 @@ function normalizeMemoryItem(m, index = 0) {
   };
 }
 
-function formatCoupleData(settings) {
+function formatCoupleData(settings = {}) {
   return {
-    partnerOne: settings.partnerOne || settings.partner1 || 'Mohamed',
-    partnerTwo: settings.partnerTwo || settings.partner2 || 'Hala',
-    relationshipStartDate: settings.relationshipStartDate || settings.anniversaryDate || '2026-02-14T23:30',
-    quote: settings.quote || settings.romanticQuote || 'بحبك وهفضل احبك لحد م اموت ',
-    quoteAuthor: settings.quoteAuthor || 'حبيبك مودي',
-    pin: String(settings.pin || settings.adminPin || '1422026').trim(),
+    partnerOne: settings.partnerOne || settings.partner1 || 'أحمد',
+    partnerTwo: settings.partnerTwo || settings.partner2 || 'سارة',
+    relationshipStartDate: settings.relationshipStartDate || settings.anniversaryDate || '2023-04-15T18:30:00',
+    quote: settings.quote || settings.romanticQuote || '«في كل العالم، ليس هناك قلبٌ لي كقلبكِ.. وفي كل العالم، ليس هناك حبٌ لكِ كحبي.»',
+    quoteAuthor: settings.quoteAuthor || 'مايا أنجيلو',
+    pin: String(settings.pin || settings.adminPin || '1314').trim(),
     customAudioUrl: settings.customAudioUrl || '',
-    loveLetterTitle: settings.loveLetterTitle || 'ل لولي حبيبتي',
-    loveLetterContent: settings.loveLetterContent || '',
-    loveLetterSignoff: settings.loveLetterSignoff || 'بحبك اوي يعيوني',
     // Mirror legacy keys
-    partner1: settings.partnerOne || settings.partner1 || 'Mohamed',
-    partner2: settings.partnerTwo || settings.partner2 || 'Hala',
-    anniversaryDate: settings.relationshipStartDate || settings.anniversaryDate || '2026-02-14T23:30',
-    romanticQuote: settings.quote || settings.romanticQuote || 'بحبك وهفضل احبك لحد م اموت ',
-    adminPin: String(settings.pin || settings.adminPin || '1422026').trim(),
+    partner1: settings.partnerOne || settings.partner1 || 'أحمد',
+    partner2: settings.partnerTwo || settings.partner2 || 'سارة',
+    anniversaryDate: settings.relationshipStartDate || settings.anniversaryDate || '2023-04-15T18:30:00',
+    romanticQuote: settings.quote || settings.romanticQuote || '«في كل العالم، ليس هناك قلبٌ لي كقلبكِ.. وفي كل العالم، ليس هناك حبٌ لكِ كحبي.»',
+    adminPin: String(settings.pin || settings.adminPin || '1314').trim(),
   };
 }
 
@@ -200,7 +271,7 @@ export default async function handler(req, res) {
     if (pathname === '/verify-pin' || pathname === '/verify-pin/') {
       const body = await getRequestBody(req);
       const data = await loadData();
-      const currentPin = String(data.settings.pin || data.settings.adminPin || '1422026').trim();
+      const currentPin = String(data.settings.pin || data.settings.adminPin || '1314').trim();
       const enteredPin = String(body.pin || '').trim();
       const isValid = currentPin === enteredPin || enteredPin === '1314';
       return res.status(200).json({ status: 'success', valid: isValid, isValid });
@@ -356,7 +427,7 @@ export default async function handler(req, res) {
     if (pathname === '/backup/reset' && method === 'POST') {
       const data = {
         settings: DEFAULT_COUPLE,
-        memories: [],
+        memories: DEFAULT_MEMORIES,
       };
       await saveData(data);
       return res.status(200).json({ status: 'success', message: 'Reset completed' });
