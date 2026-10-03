@@ -1,10 +1,10 @@
 export const INITIAL_COUPLE_DATA = {
-  partnerOne: "أحمد",
-  partnerTwo: "سارة",
-  relationshipStartDate: "2023-04-15T18:30:00",
-  quote: "«في كل العالم، ليس هناك قلبٌ لي كقلبكِ.. وفي كل العالم، ليس هناك حبٌ لكِ كحبي.»",
-  quoteAuthor: "مايا أنجيلو",
-  pin: "1314", // رمز الحب الأبدي
+  partnerOne: "مهند",
+  partnerTwo: "سالي",
+  relationshipStartDate: "2023-10-01T23:30:00",
+  quote: "بحبك وهفضل احبك لحد م اموت",
+  quoteAuthor: "حبيبك مهند",
+  pin: "1104",
   customAudioUrl: "",
 };
 
