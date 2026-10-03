@@ -190,6 +190,7 @@ export default function App() {
           memories={memories}
           onOpenLightbox={handleOpenLightbox}
           onLikeMemory={handleLikeMemory}
+          onOpenAdmin={() => setIsPinModalOpen(true)}
         />
 
         <RomanticFooter
