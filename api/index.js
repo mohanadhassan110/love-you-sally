@@ -1,6 +1,6 @@
 import { put } from '@vercel/blob';
 
-const BLOB_FILE_NAME = 'nfc_gift_timeline_v2.json';
+const BLOB_FILE_NAME = 'love_you_sally_data_v1.json';
 const BLOB_PUBLIC_URL = 'https://pgyht7sakchwqtiq.public.blob.vercel-storage.com/' + BLOB_FILE_NAME;
 
 // Initial couple profile for Mohanad & Sally
