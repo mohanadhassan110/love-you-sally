@@ -74,10 +74,32 @@ export default function App() {
     await apiService.toggleLike(id);
   }, []);
 
-  // Add memory
+  // Add memory with instant optimistic display
   const handleAddMemory = useCallback(async (newMemory, rawFile = null) => {
-    const created = await apiService.addMemory(newMemory, rawFile);
-    setMemories((prev) => [created, ...prev]);
+    const tempId = newMemory.id || `mem-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`;
+    const optimisticItem = {
+      ...newMemory,
+      id: tempId,
+      media: newMemory.media || (newMemory.image ? [{ type: 'image', url: newMemory.image }] : []),
+      image: newMemory.image || (newMemory.media?.[0]?.url || ''),
+      likes: newMemory.likes || 0,
+      isFavorite: !!newMemory.isFavorite,
+    };
+
+    // 1. Immediately update UI state so it appears instantly on the timeline
+    setMemories((prev) => [optimisticItem, ...prev.filter((m) => String(m.id) !== String(tempId))]);
+
+    // 2. Persist to API and replace with confirmed server record
+    try {
+      const created = await apiService.addMemory(newMemory, rawFile);
+      if (created) {
+        setMemories((prev) =>
+          prev.map((item) => (String(item.id) === String(tempId) ? created : item))
+        );
+      }
+    } catch (err) {
+      console.error('Error saving memory to backend:', err);
+    }
   }, []);
 
   // Update memory

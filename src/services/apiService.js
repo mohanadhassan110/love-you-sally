@@ -136,8 +136,7 @@ class ApiService {
       try {
         const fireMemories = await firebaseService.getMemories();
         if (Array.isArray(fireMemories)) {
-          const clean = fireMemories.filter((m) => !deleted.has(String(m.id)));
-          const formatted = clean.map(normalizeMemory);
+          const formatted = fireMemories.map(normalizeMemory);
           storageService.saveMemories(formatted);
           return formatted;
         }
@@ -165,8 +164,7 @@ class ApiService {
         const json = await res.json();
         const rawList = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : null);
         if (rawList !== null) {
-          const clean = rawList.filter((m) => !deleted.has(String(m.id)));
-          const formatted = clean.map(normalizeMemory);
+          const formatted = rawList.map(normalizeMemory);
           storageService.saveMemories(formatted);
           return formatted;
         }

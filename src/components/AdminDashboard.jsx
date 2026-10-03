@@ -159,7 +159,7 @@ export default function AdminDashboard({
       colors: ['#C05665', '#E2C082', '#682535'],
     });
 
-    showToast('تمت إضافة الذكرى للخط الزمني بنجاح!');
+    showToast('تمت إضافة الذكرى للخط الزمني بنجاح! ✨');
 
     // Reset form
     setNewMediaList([]);
@@ -167,6 +167,13 @@ export default function AdminDashboard({
     setNewDate(new Date().toISOString().split('T')[0]);
     setNewIsFavorite(false);
     setAddError('');
+
+    // Automatically close the modal so user sees their new memory live on the timeline
+    if (typeof onClose === 'function') {
+      setTimeout(() => {
+        onClose();
+      }, 700);
+    }
   };
 
   const handleSettingsSubmit = (e) => {

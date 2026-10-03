@@ -1,9 +1,9 @@
 import { INITIAL_COUPLE_DATA, INITIAL_MEMORIES } from '../data/initialMemories';
 
 const STORAGE_KEYS = {
-  COUPLE: 'love_sally_couple_profile_v3',
-  MEMORIES: 'love_sally_timeline_memories_v3',
-  DELETED_IDS: 'love_sally_deleted_memory_ids_v3',
+  COUPLE: 'love_sally_couple_profile_v4',
+  MEMORIES: 'love_sally_timeline_memories_v4',
+  DELETED_IDS: 'love_sally_deleted_memory_ids_v4',
 };
 
 export const storageService = {
@@ -59,31 +59,26 @@ export const storageService = {
   },
 
   getMemories: () => {
-    const deleted = storageService.getDeletedIds();
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.MEMORIES);
       if (stored !== null) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          return parsed.filter((m) => !deleted.has(String(m.id)));
+          return parsed;
         }
       }
     } catch (err) {
       console.warn('Could not read memories from localStorage:', err);
     }
-    // Seed with initial memories only on very first run (key not in localStorage)
-    const initial = INITIAL_MEMORIES.filter((m) => !deleted.has(String(m.id)));
+    const initial = [...INITIAL_MEMORIES];
     localStorage.setItem(STORAGE_KEYS.MEMORIES, JSON.stringify(initial));
     return initial;
   },
 
   saveMemories: (memories) => {
     try {
-      const deleted = storageService.getDeletedIds();
-      const filtered = Array.isArray(memories)
-        ? memories.filter((m) => !deleted.has(String(m.id)))
-        : [];
-      localStorage.setItem(STORAGE_KEYS.MEMORIES, JSON.stringify(filtered));
+      const list = Array.isArray(memories) ? memories : [];
+      localStorage.setItem(STORAGE_KEYS.MEMORIES, JSON.stringify(list));
       return true;
     } catch (err) {
       console.error('Failed to save memories to localStorage:', err);

@@ -79,10 +79,9 @@ export default function TimelineItem({
         }`}
       >
         <motion.article
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-40px' }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
           className="group relative bg-white/95 rounded-3xl p-3.5 sm:p-5 border border-[#C89B53]/20 shadow-xs hover:shadow-md transition-all duration-300 w-full overflow-hidden"
         >
           {/* Prominent Media Display (Supports single photo, multiple photos slider, and video) */}
