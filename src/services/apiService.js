@@ -4,19 +4,7 @@ import { firebaseService } from './firebaseService';
 let activeApiUrl = null;
 
 async function resolveApiUrl() {
-  if (activeApiUrl) return activeApiUrl;
-
-  // Check if local Laravel backend is running on http://127.0.0.1:8000
-  try {
-    const res = await fetch('http://127.0.0.1:8000/api/health', { signal: AbortSignal.timeout(1500) });
-    if (res.ok) {
-      activeApiUrl = 'http://127.0.0.1:8000/api';
-      return activeApiUrl;
-    }
-  } catch {}
-
-  activeApiUrl = '/api';
-  return activeApiUrl;
+  return '/api';
 }
 
 class ApiService {

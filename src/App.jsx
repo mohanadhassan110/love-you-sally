@@ -49,20 +49,22 @@ export default function App() {
       }
     });
 
-    // 2. Periodic background sync every 6 seconds so mobile & laptop stay 100% in sync
+    // 2. Periodic background sync every 3 seconds so mobile & laptop stay 100% in sync
     const interval = setInterval(() => {
       apiService.getMemories().then((liveMemories) => {
-        if (Array.isArray(liveMemories) && liveMemories.length > 0) {
+        if (Array.isArray(liveMemories)) {
           setMemories((prev) => {
-            // Only update if count changed or different items
-            if (prev.length !== liveMemories.length || (prev[0] && liveMemories[0] && String(prev[0].id) !== String(liveMemories[0].id))) {
+            const prevSignature = prev.map((m) => String(m.id)).join('|');
+            const liveSignature = liveMemories.map((m) => String(m.id)).join('|');
+            // If any item was added, deleted, or reordered on another device, update immediately!
+            if (prevSignature !== liveSignature) {
               return liveMemories;
             }
             return prev;
           });
         }
       }).catch(() => {});
-    }, 6000);
+    }, 3000);
 
     return () => {
       window.removeEventListener('focus', handleFocus);

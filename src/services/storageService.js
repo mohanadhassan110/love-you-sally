@@ -1,9 +1,9 @@
 import { INITIAL_COUPLE_DATA, INITIAL_MEMORIES } from '../data/initialMemories';
 
 const STORAGE_KEYS = {
-  COUPLE: 'love_sally_couple_profile_v4',
-  MEMORIES: 'love_sally_timeline_memories_v4',
-  DELETED_IDS: 'love_sally_deleted_memory_ids_v4',
+  COUPLE: 'love_sally_couple_profile_v5',
+  MEMORIES: 'love_sally_timeline_memories_v5',
+  DELETED_IDS: 'love_sally_deleted_memory_ids_v5',
 };
 
 export const storageService = {
