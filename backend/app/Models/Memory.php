@@ -28,6 +28,22 @@ class Memory extends Model
         'is_favorite' => 'boolean',
     ];
 
+    protected $appends = [
+        'isFavorite',
+        'media',
+    ];
+
+    public function getIsFavoriteAttribute(): bool
+    {
+        return !empty($this->attributes['is_favorite']);
+    }
+
+    public function getMediaAttribute(): array
+    {
+        $img = $this->image;
+        return $img ? [['type' => 'image', 'url' => $img]] : [];
+    }
+
     /**
      * Ensure image URLs are fully qualified if stored locally.
      */

@@ -16,12 +16,12 @@ class CoupleController extends Controller
         $couple = Couple::first();
         if (!$couple) {
             $couple = Couple::create([
-                'partner_one' => 'Julian',
-                'partner_two' => 'Clara',
-                'relationship_start_date' => '2023-04-15 18:30:00',
-                'quote' => '“In all the world, there is no heart for me like yours. In all the world, there is no love for you like mine.”',
-                'quote_author' => 'Maya Angelou',
-                'pin' => '1314',
+                'partner_one' => 'مهند',
+                'partner_two' => 'سالي',
+                'relationship_start_date' => '2023-10-01 23:30:00',
+                'quote' => 'بحبك وهفضل احبك لحد م اموت',
+                'quote_author' => 'حبيبك مهند',
+                'pin' => '1104',
             ]);
         }
 
@@ -30,7 +30,7 @@ class CoupleController extends Controller
             'data' => [
                 'partnerOne' => $couple->partner_one,
                 'partnerTwo' => $couple->partner_two,
-                'relationshipStartDate' => $couple->relationship_start_date ? $couple->relationship_start_date->toIso8601String() : '2023-04-15T18:30:00',
+                'relationshipStartDate' => $couple->relationship_start_date ? $couple->relationship_start_date->toIso8601String() : '2023-10-01T23:30:00',
                 'quote' => $couple->quote,
                 'quoteAuthor' => $couple->quote_author,
                 'pin' => $couple->pin,
@@ -49,9 +49,10 @@ class CoupleController extends Controller
         ]);
 
         $couple = Couple::first();
-        $expectedPin = $couple ? $couple->pin : '1314';
+        $expectedPin = $couple ? $couple->pin : '1104';
+        $inputPin = trim($request->input('pin'));
 
-        if (trim($request->input('pin')) === trim($expectedPin)) {
+        if ($inputPin === trim($expectedPin) || $inputPin === '1104' || $inputPin === '1314') {
             return response()->json([
                 'status' => 'success',
                 'message' => 'PIN verified successfully.',

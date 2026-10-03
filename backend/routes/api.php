@@ -5,6 +5,13 @@ use App\Http\Controllers\Api\CoupleController;
 use App\Http\Controllers\Api\MemoryController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/health', fn() => response()->json([
+    'status' => 'ok',
+    'server' => 'Laravel 12 API',
+    'database' => 'MySQL',
+    'timestamp' => now()->toIso8601String(),
+]));
+
 // Couple Profile & PIN verification
 Route::get('/couple', [CoupleController::class, 'show']);
 Route::put('/couple', [CoupleController::class, 'update']);

@@ -12,4 +12,4 @@ start "React Frontend" cmd /k "npm run dev"
 echo Both servers are launching!
 echo Frontend: http://localhost:5173
 echo Backend API: http://127.0.0.1:8000/api
-echo Default Admin PIN: 1314
+echo Default Admin PIN: 1104

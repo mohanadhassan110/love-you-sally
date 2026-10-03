@@ -51,15 +51,17 @@ class MemoryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
+            'title' => 'nullable|string|max:255',
             'date' => 'required|date',
             'tag' => 'nullable|string|max:100',
             'location' => 'nullable|string|max:200',
             'milestone' => 'nullable|string|max:20',
             'story' => 'nullable|string',
-            'image' => 'nullable', // can be uploaded file or string URL/base64
-            'image_file' => 'nullable|image|max:12288', // up to 12MB image upload
+            'image' => 'nullable',
+            'image_file' => 'nullable|image|max:12288',
+            'media' => 'nullable',
             'is_favorite' => 'nullable|boolean',
+            'isFavorite' => 'nullable|boolean',
         ]);
 
         $imagePath = '';
@@ -78,31 +80,34 @@ class MemoryController extends Controller
         } elseif ($request->filled('image')) {
             $imageInput = $request->input('image');
 
-            // Handle base64 image data URL
             if (str_starts_with($imageInput, 'data:image')) {
                 $imagePath = $this->saveBase64Image($imageInput);
             } else {
                 $imagePath = $imageInput;
             }
+        } elseif ($request->filled('media')) {
+            $mediaInput = $request->input('media');
+            if (is_array($mediaInput) && !empty($mediaInput[0]['url'])) {
+                $imagePath = $mediaInput[0]['url'];
+            }
         }
 
         if (empty($imagePath)) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Please provide a photograph via file upload or valid URL.',
-            ], 422);
+            $imagePath = 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&w=1200&q=80';
         }
+
+        $title = !empty($validated['title']) ? $validated['title'] : (!empty($validated['story']) ? Str::limit($validated['story'], 30) : 'ذكرى جميلة');
 
         $memory = Memory::create([
             'milestone' => $validated['milestone'] ?? null,
-            'title' => $validated['title'],
+            'title' => $title,
             'tag' => $validated['tag'] ?? null,
             'date' => $validated['date'],
             'location' => $validated['location'] ?? null,
             'story' => $validated['story'] ?? null,
             'image' => $imagePath,
             'likes' => 0,
-            'is_favorite' => $request->boolean('is_favorite'),
+            'is_favorite' => $request->boolean('is_favorite') || $request->boolean('isFavorite'),
         ]);
 
         return response()->json([
