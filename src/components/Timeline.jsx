@@ -93,7 +93,7 @@ export default function Timeline({
           <>
             {/* Top Heart Node */}
             <div
-              className="absolute -top-3 right-4 sm:right-6 md:left-1/2 md:right-auto -translate-x-1/2 z-20 w-7 h-7 rounded-full bg-[#FAF7F2] border-2 border-[#C05665] flex items-center justify-center text-[#C05665] shadow-xs"
+              className="absolute -top-3 right-5 sm:right-7 md:left-1/2 md:right-auto -translate-x-1/2 z-20 w-7 h-7 rounded-full bg-[#FAF7F2] border-2 border-[#C05665] flex items-center justify-center text-[#C05665] shadow-xs"
               title="بداية رحلتنا"
             >
               <Heart className="w-3.5 h-3.5 fill-[#C05665]" />
@@ -101,13 +101,13 @@ export default function Timeline({
 
             {/* Continuous Vertical Gradient Spine */}
             <div
-              className="absolute top-2 bottom-4 right-4 sm:right-6 md:left-1/2 md:right-auto -translate-x-1/2 w-[2px] bg-gradient-to-b from-[#C05665] via-[#E2C082] to-[#C89B53]/40"
+              className="absolute top-2 bottom-4 right-5 sm:right-7 md:left-1/2 md:right-auto -translate-x-1/2 w-[2px] bg-gradient-to-b from-[#C05665] via-[#E2C082] to-[#C89B53]/40"
               aria-hidden="true"
             />
 
             {/* Bottom Sparkle Node */}
             <div
-              className="absolute -bottom-3 right-4 sm:right-6 md:left-1/2 md:right-auto -translate-x-1/2 z-20 w-6 h-6 rounded-full bg-[#FAF7F2] border-2 border-[#C89B53] flex items-center justify-center text-[#C89B53] shadow-xs"
+              className="absolute -bottom-3 right-5 sm:right-7 md:left-1/2 md:right-auto -translate-x-1/2 z-20 w-6 h-6 rounded-full bg-[#FAF7F2] border-2 border-[#C89B53] flex items-center justify-center text-[#C89B53] shadow-xs"
               title="قصتنا مستمرة إلى الأبد"
             >
               <Sparkles className="w-3 h-3" />

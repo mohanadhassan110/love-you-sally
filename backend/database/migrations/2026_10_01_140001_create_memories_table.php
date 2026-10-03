@@ -19,7 +19,7 @@ return new class extends Migration
             $table->date('date');
             $table->string('location')->nullable();
             $table->text('story')->nullable();
-            $table->text('image'); // Can be an external URL or relative storage URL
+            $table->longText('image'); // Can be an external URL, base64 data URL, or storage URL
             $table->unsignedInteger('likes')->default(0);
             $table->boolean('is_favorite')->default(false);
             $table->timestamps();

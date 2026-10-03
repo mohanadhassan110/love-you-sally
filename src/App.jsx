@@ -37,6 +37,37 @@ export default function App() {
 
   useEffect(() => {
     refreshData();
+
+    // 1. Re-sync immediately when switching tabs or focusing the browser
+    const handleFocus = () => {
+      refreshData();
+    };
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        refreshData();
+      }
+    });
+
+    // 2. Periodic background sync every 6 seconds so mobile & laptop stay 100% in sync
+    const interval = setInterval(() => {
+      apiService.getMemories().then((liveMemories) => {
+        if (Array.isArray(liveMemories) && liveMemories.length > 0) {
+          setMemories((prev) => {
+            // Only update if count changed or different items
+            if (prev.length !== liveMemories.length || (prev[0] && liveMemories[0] && String(prev[0].id) !== String(liveMemories[0].id))) {
+              return liveMemories;
+            }
+            return prev;
+          });
+        }
+      }).catch(() => {});
+    }, 6000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
   }, [refreshData]);
 
   // Real-time synchronization across all devices via Firebase if configured

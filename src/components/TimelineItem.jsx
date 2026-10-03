@@ -50,32 +50,32 @@ export default function TimelineItem({
   return (
     <div className="relative mb-8 sm:mb-14 md:mb-20 last:mb-0 w-full" dir="rtl">
       {/* Timeline Milestone Node (Sitting right on the vertical spine line on mobile & desktop) */}
-      <div className="absolute right-4 sm:right-6 md:left-1/2 md:right-auto -translate-x-1/2 top-6 z-10 flex items-center justify-center">
+      <div className="absolute right-5 sm:right-7 md:left-1/2 md:right-auto -translate-x-1/2 top-6 z-10 flex items-center justify-center">
         <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#FAF7F2] border-2 border-[#C05665] shadow-xs flex items-center justify-center text-xs font-serif font-bold text-[#682535] bidi-text hover:scale-110 transition-transform">
           {index + 1}
         </div>
       </div>
 
-      {/* Mobile connecting arm from right node to card */}
+      {/* Mobile connecting arm from right node towards the card (points leftwards into card) */}
       <div
-        className="block md:hidden absolute top-9.5 right-4 w-5 h-[1.5px] bg-[#C05665]/50 pointer-events-none"
+        className="block md:hidden absolute top-9.5 right-8 w-4 h-[1.5px] bg-[#C05665]/60 pointer-events-none"
         aria-hidden="true"
       />
 
       {/* Desktop connecting arm from central milestone node to the card */}
       <div
-        className={`hidden md:block absolute top-10 h-[2px] w-7 pointer-events-none ${
+        className={`hidden md:block absolute top-10 h-[2px] w-8 pointer-events-none ${
           isLeft
-            ? 'left-1/2 bg-gradient-to-l from-[#C89B53] to-transparent'
-            : 'right-1/2 bg-gradient-to-r from-[#C89B53] to-transparent'
+            ? 'right-1/2 bg-gradient-to-l from-[#C05665] to-[#E2C082]'
+            : 'left-1/2 bg-gradient-to-r from-[#C05665] to-[#E2C082]'
         }`}
         aria-hidden="true"
       />
 
       {/* Main Card Container */}
       <div
-        className={`w-full pr-10 sm:pr-14 md:pr-0 md:w-[46%] ${
-          isLeft ? 'md:ms-auto md:ps-6' : 'md:me-auto md:pe-6'
+        className={`w-full pr-12 sm:pr-16 md:pr-0 md:w-[45%] ${
+          isLeft ? 'md:mr-auto md:ml-0 md:pl-6' : 'md:ml-auto md:mr-0 md:pr-6'
         }`}
       >
         <motion.article
